@@ -6,6 +6,7 @@ import time
 import signal
 import functools
 import logging
+import threading
 from typing import Callable, Any, Optional
 from contextlib import contextmanager
 
@@ -29,21 +30,32 @@ def timeout(seconds: int = 30):
     """
     Decorator que limita el tiempo de ejecución de una función.
     
+    NOTA: Solo funciona en el main thread. Si se usa en un thread secundario
+    (como en Streamlit), ejecuta la función sin timeout.
+    
     Args:
         seconds: Tiempo máximo en segundos (default: 30)
         
     Raises:
-        TimeoutError: Si la función no termina a tiempo
+        TimeoutError: Si la función no termina a tiempo (solo main thread)
         
     Ejemplo:
         @timeout(10)
         def slow_function():
-            time.sleep(20)  # Lanzará TimeoutError
+            time.sleep(20)  # Lanzará TimeoutError en main thread
     """
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
-            # Configurar alarma
+            # Verificar si estamos en el main thread
+            is_main_thread = threading.current_thread() is threading.main_thread()
+            
+            if not is_main_thread:
+                # En threads secundarios (Streamlit), ejecutar sin timeout
+                logger.debug(f"{func.__name__}: Ejecutando en thread secundario, timeout desactivado")
+                return func(*args, **kwargs)
+            
+            # En main thread, usar signal
             old_handler = signal.signal(signal.SIGALRM, timeout_handler)
             signal.alarm(seconds)
             
