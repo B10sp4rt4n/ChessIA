@@ -1,0 +1,32 @@
+[run]
+source = .
+omit = 
+    test_*.py
+    */__pycache__/*
+    */tests/*
+    */test/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if __name__ == .__main__.:
+    if st.button
+    st.title
+    st.write
+    st.markdown
+    st.header
+    st.subheader
+    st.info
+    st.warning
+    st.error
+    st.success
+    st.plotly_chart
+    st.pyplot
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if False:
+
+[html]
+directory = htmlcov
