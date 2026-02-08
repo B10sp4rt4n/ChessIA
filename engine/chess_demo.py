@@ -172,30 +172,29 @@ def run_game_stepwise(max_moves: int = 50, rng: Optional[random.Random] = None) 
 # -----------------------------
 # UI Sidebar
 # -----------------------------
-try:
-    st.sidebar.header("Parámetros")
-    max_turns = st.sidebar.slider("Máximo de turnos", 10, 100, 50, step=10)
+st.sidebar.header("Parámetros")
+max_turns = st.sidebar.slider("Máximo de turnos", 10, 100, 50, step=10)
 
-    if max_turns <= 0:
-        st.sidebar.error("El número de turnos debe ser mayor a 0")
-        max_turns = 10
+if max_turns <= 0:
+    st.sidebar.error("El número de turnos debe ser mayor a 0")
+    max_turns = 10
 
-    if st.sidebar.button("🎲 Nueva partida"):
-        try:
-            # Crear nuevo RNG para cada partida manual
-            new_rng = random.Random()
-            st.session_state["game"] = run_game_stepwise(max_turns, rng=new_rng)
-            st.session_state["current_turn"] = 0
-            st.success(f"Nueva partida generada ({max_turns} turnos máx)")
-        except Exception as e:
-            st.error(f"Error generando partida: {e}")
-            logger.error(f"Error en nueva partida: {e}", exc_info=True)
-
-    if "game" not in st.session_state:
-        st.session_state["game"] = run_game_stepwise(max_turns)
+if st.sidebar.button("🎲 Nueva partida"):
+    try:
+        # Crear nuevo RNG para cada partida manual
+        new_rng = random.Random()
+        st.session_state["game"] = run_game_stepwise(max_turns, rng=new_rng)
         st.session_state["current_turn"] = 0
+        st.success(f"Nueva partida generada ({max_turns} turnos máx)")
+    except Exception as e:
+        st.error(f"Error generando partida: {e}")
+        logger.error(f"Error en nueva partida: {e}", exc_info=True)
 
-    game_history = st.session_state["game"]
+if "game" not in st.session_state:
+    st.session_state["game"] = run_game_stepwise(max_turns)
+    st.session_state["current_turn"] = 0
+
+game_history = st.session_state["game"]
 
 # -----------------------------
 # Control de turnos
@@ -391,10 +390,5 @@ with st.expander("⚙️ Detalles técnicos"):
     """)
 
 st.sidebar.markdown("---")
-    st.sidebar.caption("Modo Ajedrez Estructural v1.0")
+st.sidebar.caption("Modo Ajedrez Estructural v1.0")
 
-except Exception as e:
-    st.error(f"⚠️ Error crítico en la aplicación: {e}")
-    logger.critical(f"Error crítico en UI principal: {e}", exc_info=True)
-    st.info("Por favor, recarga la página o contacta al administrador.")
-    st.code(str(e))

@@ -1,5 +1,12 @@
-streamlit>=1.31
-networkx>=3.2
-python-chess>=1.999
-pytest>=7.0
-pytest-cov>=4.0
+# Requirements - Versiones exactas (lockfile para producción)
+# Generado: 2026-02-08
+# Python: 3.12.1
+
+# Core dependencies
+streamlit==1.54.0
+networkx==3.6.1
+python-chess==1.999
+
+# Testing (solo si se instala con --dev)
+pytest==9.0.2
+pytest-cov==7.0.0

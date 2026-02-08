@@ -29,16 +29,24 @@ python -m http.server 8000 --directory she-core/web
 
 ## Instalación de dependencias
 
+### Producción (versiones exactas)
 ```bash
 pip install -r requirements.txt
 ```
 
-**Dependencias principales:**
-- `streamlit>=1.31` - Framework de demos interactivos
-- `networkx>=3.2` - Análisis de grafos
-- `python-chess>=1.999` - Motor de ajedrez
-- `pytest>=7.0` - Testing framework
-- `pytest-cov>=4.0` - Cobertura de tests
+### Desarrollo (rangos flexibles para CI/CD)
+```bash
+pip install -r requirements-dev.txt
+```
+
+**Dependencias principales (versiones lockfile):**
+- `streamlit==1.54.0` - Framework de demos interactivos
+- `networkx==3.6.1` - Análisis de grafos
+- `python-chess==1.999` - Motor de ajedrez
+- `pytest==9.0.2` - Testing framework
+- `pytest-cov==7.0.0` - Cobertura de tests
+
+**Nota:** `requirements.txt` usa versiones exactas (lockfile) para reproducibilidad en producción. `requirements-dev.txt` usa rangos compatibles para desarrollo y CI/CD.
 
 ## Correr demos de Python
 
