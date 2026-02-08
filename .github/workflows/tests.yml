@@ -11,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.10', '3.11', '3.12']
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+      fail-fast: false  # Continuar tests incluso si una version falla
     
     steps:
     - uses: actions/checkout@v4
@@ -37,12 +38,26 @@ jobs:
     - name: Run tests with pytest
       run: |
         cd engine
-        python -m pytest test_compare_v42.py test_mcl_chess.py test_demo.py -v --tb=short
+        python -m pytest \
+          test_compare_v42.py \
+          test_mcl_chess.py \
+          test_mcl_chess_coverage.py \
+          test_demo.py \
+          test_chess_demo.py \
+          test_rate_limiter.py \
+          -v --tb=short
     
     - name: Generate coverage report
       run: |
         cd engine
-        python -m pytest --cov=compare_v42 --cov=mcl_chess --cov=demo --cov-report=xml --cov-report=term-missing
+        python -m pytest \
+          --cov=compare_v42 \
+          --cov=mcl_chess \
+          --cov=demo \
+          --cov=chess_demo \
+          --cov=rate_limiter \
+          --cov-report=xml \
+          --cov-report=term-missing
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -88,3 +103,62 @@ jobs:
       run: |
         pylint engine/*.py --exit-zero --max-line-length=100 || true
       continue-on-error: true
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies and audit tool
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-audit
+        pip install -r requirements.txt
+    
+    - name: Security audit with pip-audit
+      run: |
+        pip-audit --format json --output audit-report.json || true
+        pip-audit --format columns || true
+      continue-on-error: true
+    
+    - name: Upload audit report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-audit-report
+        path: audit-report.json
+        retention-days: 30
+
+  benchmark:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run performance benchmarks
+      run: |
+        python benchmark.py
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: benchmark-results
+        path: benchmark-results.json
+        retention-days: 90
