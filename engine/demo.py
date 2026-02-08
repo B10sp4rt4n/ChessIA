@@ -8,6 +8,11 @@ import streamlit as st
 import networkx as nx
 import random
 import logging
+from rate_limiter import (
+    timeout,
+    TimeoutError,
+    validate_computational_cost
+)
 
 # Configurar logging
 logging.basicConfig(
@@ -59,6 +64,7 @@ def validate_node_count(n: int) -> int:
 # -----------------------------
 # Construcción del grafo
 # -----------------------------
+@timeout(seconds=30)
 def build_graph(n: int = 6, rng: Optional[random.Random] = None) -> Tuple[nx.Graph, Dict[str, Node]]:
     """
     Construye un grafo aleatorio con nodos estructurales.
@@ -73,6 +79,9 @@ def build_graph(n: int = 6, rng: Optional[random.Random] = None) -> Tuple[nx.Gra
     Raises:
         TypeError: Si n no es int
         ValueError: Si n fuera de rango
+        TimeoutError: Si la construcción excede 30 segundos
+        
+    NOTA: Esta es una construcción aleatoria simple para demo.
     """
     try:
         n = validate_node_count(n)
@@ -185,6 +194,15 @@ def compute_metrics(G: nx.Graph, nodes: Dict[str, Node]) -> Tuple[float, float, 
 try:
     st.sidebar.header("Parámetros")
     num_nodes = st.sidebar.slider("Número de nodos", 3, 12, 6)
+    
+    # Validar costo computacional
+    cost_validation = validate_computational_cost(max_moves=100, max_nodes=num_nodes)
+    if cost_validation['warning']:
+        if cost_validation['allowed']:
+            st.sidebar.warning(cost_validation['warning'])
+        else:
+            st.sidebar.error(cost_validation['warning'])
+            num_nodes = 6  # Forzar valor seguro
 
     if st.sidebar.button("Generar sistema"):
         try:
@@ -192,6 +210,9 @@ try:
             new_rng = random.Random()
             st.session_state["graph"] = build_graph(num_nodes, rng=new_rng)
             st.success(f"Sistema generado con {num_nodes} nodos")
+        except TimeoutError:
+            st.error("⏱️ Timeout: La generación del sistema tomó demasiado tiempo (>30s). Reduce el número de nodos.")
+            logger.error(f"Timeout en generación con num_nodes={num_nodes}")
         except Exception as e:
             st.error(f"Error generando sistema: {e}")
             logger.error(f"Error en generación manual: {e}", exc_info=True)

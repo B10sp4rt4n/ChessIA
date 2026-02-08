@@ -16,6 +16,11 @@ from mcl_chess import (
     ACCESS_WEIGHT,
     compute_holistic_metrics
 )
+from rate_limiter import (
+    timeout,
+    TimeoutError,
+    validate_computational_cost
+)
 
 # Configurar logging
 logging.basicConfig(
@@ -94,6 +99,7 @@ def render_board_svg(board: chess.Board, size: int = 400) -> str:
         raise RuntimeError(f"Fallo al renderizar tablero: {e}") from e
 
 
+@timeout(seconds=60)
 def run_game_stepwise(max_moves: int = 50, rng: Optional[random.Random] = None) -> List[Tuple[int, float, float, chess.Board, str]]:
     """
     Ejecuta una partida paso a paso, guardando estado del tablero y movimientos.
@@ -108,6 +114,7 @@ def run_game_stepwise(max_moves: int = 50, rng: Optional[random.Random] = None) 
     Raises:
         TypeError: Si max_moves no es int
         ValueError: Si max_moves fuera de rango
+        TimeoutError: Si la ejecución excede 60 segundos
     
     Movimientos aleatorios simples.
     """
@@ -179,6 +186,15 @@ if max_turns <= 0:
     st.sidebar.error("El número de turnos debe ser mayor a 0")
     max_turns = 10
 
+# Validar costo computacional
+cost_validation = validate_computational_cost(max_moves=max_turns)
+if cost_validation['warning']:
+    if cost_validation['allowed']:
+        st.sidebar.warning(cost_validation['warning'])
+    else:
+        st.sidebar.error(cost_validation['warning'])
+        max_turns = 50  # Forzar valor seguro
+
 if st.sidebar.button("🎲 Nueva partida"):
     try:
         # Crear nuevo RNG para cada partida manual
@@ -186,6 +202,9 @@ if st.sidebar.button("🎲 Nueva partida"):
         st.session_state["game"] = run_game_stepwise(max_turns, rng=new_rng)
         st.session_state["current_turn"] = 0
         st.success(f"Nueva partida generada ({max_turns} turnos máx)")
+    except TimeoutError:
+        st.error("⏱️ Timeout: La generación de partida tomó demasiado tiempo (>60s). Reduce el número de turnos.")
+        logger.error(f"Timeout en nueva partida con max_turns={max_turns}")
     except Exception as e:
         st.error(f"Error generando partida: {e}")
         logger.error(f"Error en nueva partida: {e}", exc_info=True)
