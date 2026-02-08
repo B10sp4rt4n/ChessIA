@@ -3,21 +3,29 @@
 # Visualización Streamlit para mcl_chess.py
 # NOTA: Este es un DEMO EXPERIMENTAL para observar métricas estructurales en ajedrez.
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 import chess
 import chess.svg
 import random
+import logging
 from mcl_chess import (
     PIECE_CAPACITY,
     ACCESS_WEIGHT,
     compute_holistic_metrics
 )
 
-# Reproducibilidad
-random.seed(42)
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# RNG aislado para demo (no usar random.seed() global)
+_demo_rng = random.Random(42)
 
 st.set_page_config(page_title="SHE Demo - Modo Ajedrez", layout="wide")
 
@@ -34,87 +42,160 @@ st.warning(
 
 
 # -----------------------------
+# Validación
+# -----------------------------
+def validate_max_moves(max_moves: int) -> int:
+    """Valida número máximo de movimientos."""
+    if not isinstance(max_moves, int):
+        raise TypeError(f"max_moves debe ser int, recibido {type(max_moves).__name__}")
+    if not 1 <= max_moves <= 200:
+        raise ValueError(f"max_moves fuera de rango [1, 200]: {max_moves}")
+    return max_moves
+
+
+# -----------------------------
 # Funciones auxiliares
 # -----------------------------
 def render_board_svg(board: chess.Board, size: int = 400) -> str:
     """
     Renderiza el tablero en formato SVG gráfico usando python-chess.
+    
+    Args:
+        board: Tablero de ajedrez
+        size: Tamaño del tablero en pixels
+        
+    Returns:
+        String SVG del tablero
+        
+    Raises:
+        TypeError: Si board no es chess.Board
+        ValueError: Si size es inválido
     """
-    svg = chess.svg.board(
-        board=board,
-        size=size,
-        coordinates=True,
-        colors={
-            "square light": "#f0d9b5",
-            "square dark": "#b58863",
-            "square light lastmove": "#cdd26a",
-            "square dark lastmove": "#aaa23a"
-        }
-    )
-    return svg
+    try:
+        if not isinstance(board, chess.Board):
+            raise TypeError(f"board debe ser chess.Board, recibido {type(board).__name__}")
+        if not isinstance(size, int) or size < 100 or size > 1000:
+            raise ValueError(f"size debe estar entre 100-1000: {size}")
+        
+        svg = chess.svg.board(
+            board=board,
+            size=size,
+            coordinates=True,
+            colors={
+                "square light": "#f0d9b5",
+                "square dark": "#b58863",
+                "square light lastmove": "#cdd26a",
+                "square dark lastmove": "#aaa23a"
+            }
+        )
+        return svg
+    except Exception as e:
+        logger.error(f"Error renderizando tablero: {e}")
+        raise RuntimeError(f"Fallo al renderizar tablero: {e}") from e
 
 
-def run_game_stepwise(max_moves: int = 50) -> List[Tuple[int, float, float, chess.Board, str]]:
+def run_game_stepwise(max_moves: int = 50, rng: Optional[random.Random] = None) -> List[Tuple[int, float, float, chess.Board, str]]:
     """
     Ejecuta una partida paso a paso, guardando estado del tablero y movimientos.
+    
+    Args:
+        max_moves: Número máximo de movimientos (1-200)
+        rng: Generador random aislado (opcional)
+        
+    Returns:
+        Lista de tuplas (move_count, H, H_eff, board, move_san)
+        
+    Raises:
+        TypeError: Si max_moves no es int
+        ValueError: Si max_moves fuera de rango
+    
     Movimientos aleatorios simples.
     """
-    if max_moves <= 0:
-        max_moves = 10  # Fallback seguro
-    
-    board = chess.Board()
-    history = []
-    
-    # Estado inicial (sin movimiento)
-    H, H_eff = compute_holistic_metrics(board)
-    history.append((0, H, H_eff, board.copy(), "Posición inicial"))
-    
-    for move_count in range(max_moves):
-        if board.is_game_over():
-            break
+    try:
+        max_moves = validate_max_moves(max_moves)
+        if rng is None:
+            rng = _demo_rng
         
-        # Movimiento aleatorio
-        legal_moves = list(board.legal_moves)
-        if not legal_moves:
-            break
+        logger.info(f"Iniciando partida (max_moves={max_moves})")
+        board = chess.Board()
+        history = []
         
-        move = random.choice(legal_moves)
-        move_san = board.san(move)  # Notación algebraica estándar (e.g., "Nf3", "e4")
-        board.push(move)
-        
-        # Calcular métricas después del movimiento
+        # Estado inicial (sin movimiento)
         H, H_eff = compute_holistic_metrics(board)
+        history.append((0, H, H_eff, board.copy(), "Posición inicial"))
         
-        # Guardar estado
-        history.append((move_count + 1, H, H_eff, board.copy(), move_san))
+        for move_count in range(max_moves):
+            if board.is_game_over():
+                logger.info(f"Juego terminado en turno {move_count}")
+                break
+            
+            # Movimiento aleatorio
+            legal_moves = list(board.legal_moves)
+            if not legal_moves:
+                logger.warning(f"Sin movimientos legales en turno {move_count}")
+                break
+            
+            try:
+                move = rng.choice(legal_moves)
+                move_san = board.san(move)  # Notación algebraica estándar (e.g., "Nf3", "e4")
+                board.push(move)
+            except Exception as e:
+                logger.error(f"Error aplicando movimiento en turno {move_count}: {e}")
+                break
+            
+            # Calcular métricas después del movimiento
+            try:
+                H, H_eff = compute_holistic_metrics(board)
+            except Exception as e:
+                logger.error(f"Error calculando métricas en turno {move_count}: {e}")
+                break
+            
+            # Guardar estado
+            history.append((move_count + 1, H, H_eff, board.copy(), move_san))
+            
+            # Detección de colapso estructural
+            if H_eff <= 0.1:
+                logger.warning(f"Colapso estructural en turno {move_count + 1}")
+                break
         
-        # Detección de colapso estructural
-        if H_eff <= 0.1:
-            break
-    
-    return history
+        logger.info(f"Partida completa: {len(history)} estados")
+        return history
+        
+    except (TypeError, ValueError) as e:
+        logger.error(f"Error validando parámetros: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error en simulación: {e}", exc_info=True)
+        raise RuntimeError(f"Fallo en simulación: {e}") from e
 
 
 # -----------------------------
 # UI Sidebar
 # -----------------------------
-st.sidebar.header("Parámetros")
-max_turns = st.sidebar.slider("Máximo de turnos", 10, 100, 50, step=10)
+try:
+    st.sidebar.header("Parámetros")
+    max_turns = st.sidebar.slider("Máximo de turnos", 10, 100, 50, step=10)
 
-if max_turns <= 0:
-    st.sidebar.error("El número de turnos debe ser mayor a 0")
-    max_turns = 10
+    if max_turns <= 0:
+        st.sidebar.error("El número de turnos debe ser mayor a 0")
+        max_turns = 10
 
-if st.sidebar.button("🎲 Nueva partida"):
-    random.seed()  # Permitir variación
-    st.session_state["game"] = run_game_stepwise(max_turns)
-    st.session_state["current_turn"] = 0
+    if st.sidebar.button("🎲 Nueva partida"):
+        try:
+            # Crear nuevo RNG para cada partida manual
+            new_rng = random.Random()
+            st.session_state["game"] = run_game_stepwise(max_turns, rng=new_rng)
+            st.session_state["current_turn"] = 0
+            st.success(f"Nueva partida generada ({max_turns} turnos máx)")
+        except Exception as e:
+            st.error(f"Error generando partida: {e}")
+            logger.error(f"Error en nueva partida: {e}", exc_info=True)
 
-if "game" not in st.session_state:
-    st.session_state["game"] = run_game_stepwise(max_turns)
-    st.session_state["current_turn"] = 0
+    if "game" not in st.session_state:
+        st.session_state["game"] = run_game_stepwise(max_turns)
+        st.session_state["current_turn"] = 0
 
-game_history = st.session_state["game"]
+    game_history = st.session_state["game"]
 
 # -----------------------------
 # Control de turnos
@@ -310,4 +391,10 @@ with st.expander("⚙️ Detalles técnicos"):
     """)
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Modo Ajedrez Estructural v1.0")
+    st.sidebar.caption("Modo Ajedrez Estructural v1.0")
+
+except Exception as e:
+    st.error(f"⚠️ Error crítico en la aplicación: {e}")
+    logger.critical(f"Error crítico en UI principal: {e}", exc_info=True)
+    st.info("Por favor, recarga la página o contacta al administrador.")
+    st.code(str(e))

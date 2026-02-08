@@ -121,11 +121,11 @@ class TestBuildGraph:
     
     def test_build_graph_reproducibility(self):
         """Verificar que con misma seed produce mismo grafo."""
-        random.seed(42)
-        G1, nodes1 = build_graph(n=6)
+        rng1 = random.Random(42)
+        G1, nodes1 = build_graph(n=6, rng=rng1)
         
-        random.seed(42)
-        G2, nodes2 = build_graph(n=6)
+        rng2 = random.Random(42)
+        G2, nodes2 = build_graph(n=6, rng=rng2)
         
         # Mismo número de nodos y aristas
         assert G1.number_of_nodes() == G2.number_of_nodes()
@@ -138,11 +138,11 @@ class TestBuildGraph:
     
     def test_build_graph_different_sizes(self):
         """Verificar que diferentes tamaños producen grafos diferentes."""
-        random.seed(42)
-        G_small, _ = build_graph(n=3)
+        rng = random.Random(42)
+        G_small, _ = build_graph(n=3, rng=rng)
         
-        random.seed(42)
-        G_large, _ = build_graph(n=12)
+        rng = random.Random(42)
+        G_large, _ = build_graph(n=12, rng=rng)
         
         assert G_small.number_of_nodes() < G_large.number_of_nodes()
 
@@ -332,12 +332,12 @@ class TestIntegration:
     
     def test_reproducibility_full_pipeline(self):
         """Verificar reproducibilidad completa del pipeline."""
-        random.seed(123)
-        G1, nodes1 = build_graph(n=7)
+        rng1 = random.Random(123)
+        G1, nodes1 = build_graph(n=7, rng=rng1)
         H1, H_eff1, S1 = compute_metrics(G1, nodes1)
         
-        random.seed(123)
-        G2, nodes2 = build_graph(n=7)
+        rng2 = random.Random(123)
+        G2, nodes2 = build_graph(n=7, rng=rng2)
         H2, H_eff2, S2 = compute_metrics(G2, nodes2)
         
         assert abs(H1 - H2) < 0.01

@@ -182,11 +182,9 @@ class TestRunGame:
         assert len(history) <= 201  # max_moves + 1 (estado inicial)
     
     def test_run_game_zero_moves(self):
-        """Verificar comportamiento con max_moves=0."""
-        history = run_game(max_moves=0)
-        
-        # Debe retornar al menos el estado inicial (turno 0)
-        assert len(history) >= 0
+        """Verificar que max_moves=0 lanza ValueError."""
+        with pytest.raises(ValueError, match="fuera de rango"):
+            run_game(max_moves=0)
     
     def test_run_game_different_lengths(self):
         """Verificar que diferentes max_moves producen diferentes longitudes."""
@@ -200,11 +198,11 @@ class TestRunGame:
         """Verificar que con misma seed produce mismos resultados."""
         import random
         
-        random.seed(42)
-        history1 = run_game(max_moves=10)
+        rng1 = random.Random(42)
+        history1 = run_game(max_moves=10, rng=rng1)
         
-        random.seed(42)
-        history2 = run_game(max_moves=10)
+        rng2 = random.Random(42)
+        history2 = run_game(max_moves=10, rng=rng2)
         
         # Deberían ser idénticos
         assert len(history1) == len(history2)
