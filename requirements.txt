@@ -1,3 +1,5 @@
 streamlit>=1.31
 networkx>=3.2
 python-chess>=1.999
+pytest>=7.0
+pytest-cov>=4.0
