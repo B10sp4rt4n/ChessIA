@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Métricas Fundamentales · SHE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="Definiciones formales de H, H_eff y S en el Structural Health Engine."/>
+  <link rel="stylesheet" href="assets/style.css"/>
+</head>
+
+<body>
+
+<header class="hero">
+  <h1>Métricas Fundamentales</h1>
+  <p class="subtitle">
+    Definición formal de holgura, accesibilidad y balance estructural
+  </p>
+</header>
+
+<nav class="main-nav">
+  <a href="index.html">Core</a>
+  <a href="metrics.html">Métricas</a>
+  <a href="comparator.html">Comparador</a>
+  <a href="results.html">Resultados</a>
+  <a href="modes.html">Modos</a>
+  <a href="faq.html">FAQ</a>
+  <a href="README.html">README</a>
+</nav>
+
+<main>
+
+<section>
+  <h2>1. Notación general</h2>
+  <p>
+    Un sistema está compuesto por un conjunto finito de contenedores
+    estructurales, llamados <strong>nodos</strong>.
+  </p>
+  <p>
+    Cada nodo posee:
+  </p>
+  <ul>
+    <li>una carga actual (<code>L</code>)</li>
+    <li>una capacidad máxima (<code>C</code>)</li>
+    <li>una pertenencia a un grupo conservativo</li>
+  </ul>
+  <p>
+    La carga total de cada grupo se conserva en todo momento.
+  </p>
+</section>
+
+<section>
+  <h2>2. Holgura total (H)</h2>
+  <p>
+    La holgura total representa la cantidad agregada de capacidad aún no utilizada
+    dentro de un sistema o grupo.
+  </p>
+
+  <p><strong>Definición conceptual:</strong></p>
+  <p>
+    Es la diferencia entre la capacidad máxima y la carga actual, agregada
+    sobre todos los nodos activos.
+  </p>
+
+  <p><strong>Interpretación:</strong></p>
+  <ul>
+    <li>Mide cuánto espacio libre existe en el sistema</li>
+    <li>No considera si ese espacio es accesible o utilizable</li>
+  </ul>
+
+  <p class="note">
+    Un valor H &gt; 0 no implica que el sistema esté sano.
+  </p>
+</section>
+
+<section>
+  <h2>3. Holgura efectiva (H<sub>eff</sub>)</h2>
+  <p>
+    La holgura efectiva es la porción de la holgura total que puede
+    utilizarse realmente para redistribuir carga.
+  </p>
+
+  <p><strong>Definición conceptual:</strong></p>
+  <p>
+    Es la holgura total ponderada por la accesibilidad estructural
+    de cada nodo.
+  </p>
+
+  <p><strong>Factores que afectan H<sub>eff</sub>:</strong></p>
+  <ul>
+    <li>Conectividad entre nodos</li>
+    <li>Restricciones de flujo</li>
+    <li>Fricción estructural</li>
+    <li>Direccionalidad y válvulas</li>
+  </ul>
+
+  <p class="note">
+    Cuando H<sub>eff</sub> = 0, el sistema ya no puede redistribuir presión,
+    aunque exista holgura total disponible.
+  </p>
+</section>
+
+<section>
+  <h2>4. Entropía estructural (S)</h2>
+  <p>
+    La entropía estructural mide el desbalance interno en la distribución
+    de carga dentro de un sistema.
+  </p>
+
+  <p><strong>Definición conceptual:</strong></p>
+  <p>
+    Es una medida de dispersión relativa de la carga respecto
+    a la capacidad de cada nodo.
+  </p>
+
+  <p><strong>Interpretación:</strong></p>
+  <ul>
+    <li>Valores bajos indican balance interno</li>
+    <li>Valores altos indican concentración o tensión desigual</li>
+  </ul>
+
+  <p class="note">
+    Una entropía elevada reduce la capacidad del sistema para absorber
+    nuevas perturbaciones.
+  </p>
+</section>
+
+<section>
+  <h2>5. Estados derivados</h2>
+  <p>
+    A partir de las métricas fundamentales, el sistema reconoce
+    estados operativos claros:
+  </p>
+
+  <ul>
+    <li>
+      <strong>Vivo</strong><br/>
+      H<sub>eff</sub> &gt; 0
+    </li>
+    <li>
+      <strong>Zombi</strong><br/>
+      H &gt; 0 y H<sub>eff</sub> = 0
+    </li>
+    <li>
+      <strong>Colapsado</strong><br/>
+      No existe redistribución viable
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2>6. Relación entre métricas</h2>
+  <p>
+    Las métricas no son independientes entre sí.
+  </p>
+
+  <ul>
+    <li>H define el límite superior de resiliencia</li>
+    <li>H<sub>eff</sub> define la resiliencia real</li>
+    <li>S modula la velocidad de degradación</li>
+  </ul>
+
+  <p>
+    El comparador estructural evalúa escenarios
+    observando la evolución temporal de estas magnitudes.
+  </p>
+</section>
+
+<section>
+  <h2>7. Alcance y límites</h2>
+  <p>
+    Estas métricas describen propiedades estructurales,
+    no semánticas.
+  </p>
+
+  <p>
+    No evalúan intención, significado ni valor externo.
+    Evalúan únicamente viabilidad estructural.
+  </p>
+</section>
+
+</main>
+
+<footer>
+  <p>
+    Un sistema no colapsa cuando falla.
+    Colapsa cuando ya no puede redistribuir presión.
+  </p>
+</footer>
+
+</body>
+</html>

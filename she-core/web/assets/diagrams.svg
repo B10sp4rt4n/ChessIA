@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400" role="img" aria-label="Placeholder diagram">
+  <rect width="800" height="400" fill="#f4f1ea" />
+  <rect x="40" y="40" width="720" height="320" fill="#ffffff" stroke="#1f4b3f" stroke-width="2" />
+  <line x1="80" y1="120" x2="720" y2="120" stroke="#1f4b3f" stroke-width="2" />
+  <line x1="80" y1="200" x2="720" y2="200" stroke="#1f4b3f" stroke-width="2" />
+  <line x1="80" y1="280" x2="720" y2="280" stroke="#1f4b3f" stroke-width="2" />
+  <text x="80" y="90" font-family="Helvetica, Arial, sans-serif" font-size="20" fill="#1b1b1b">Diagrama base</text>
+  <text x="80" y="160" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#6b6b6b">Nodo A - Nodo B - Nodo C</text>
+  <text x="80" y="240" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#6b6b6b">Relacion 1 - Relacion 2</text>
+  <text x="80" y="320" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#6b6b6b">Placeholder de estructura</text>
+</svg>

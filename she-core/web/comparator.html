@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Comparador Estructural v4.2 · SHE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="Comparador estructural v4.2 para evaluación objetiva de resiliencia basada en H_eff y su evolución temporal."/>
+  <link rel="stylesheet" href="assets/style.css"/>
+</head>
+
+<body>
+
+<header class="hero">
+  <h1>Comparador Estructural v4.2</h1>
+  <p class="subtitle">
+    Evaluación objetiva de resiliencia sin heurística ni semántica
+  </p>
+</header>
+
+<nav class="main-nav">
+  <a href="index.html">Core</a>
+  <a href="metrics.html">Métricas</a>
+  <a href="comparator.html">Comparador</a>
+  <a href="results.html">Resultados</a>
+  <a href="modes.html">Modos</a>
+  <a href="faq.html">FAQ</a>
+  <a href="README.html">README</a>
+</nav>
+
+<main>
+
+<section>
+  <h2>1. Propósito</h2>
+  <p>
+    El Comparador Estructural v4.2 permite evaluar y ordenar escenarios
+    de un mismo sistema o de sistemas equivalentes bajo un criterio único
+    y verificable.
+  </p>
+  <p>
+    Su objetivo no es predecir comportamientos,
+    sino determinar <strong>qué configuración puede sostener presión
+    durante más tiempo</strong>.
+  </p>
+</section>
+
+<section>
+  <h2>2. Principio de comparación</h2>
+  <p>
+    Dos escenarios son comparables cuando comparten:
+  </p>
+  <ul>
+    <li>La misma ley de conservación</li>
+    <li>La misma definición de métricas (H, H<sub>eff</sub>, S)</li>
+    <li>Condiciones iniciales observables</li>
+  </ul>
+  <p>
+    No es necesario que compartan semántica, propósito ni dominio.
+  </p>
+</section>
+
+<section>
+  <h2>3. Magnitudes utilizadas</h2>
+  <p>
+    El comparador se basa exclusivamente en magnitudes estructurales.
+  </p>
+
+  <ul>
+    <li>
+      <strong>H<sub>eff</sub></strong><br/>
+      Capacidad real de redistribución disponible.
+    </li>
+    <li>
+      <strong>dH<sub>eff</sub>/dt</strong><br/>
+      Velocidad de degradación de la holgura efectiva.
+    </li>
+  </ul>
+
+  <p class="note">
+    No se utilizan métricas de desempeño, éxito o valor externo.
+  </p>
+</section>
+
+<section>
+  <h2>4. Clases de escenarios</h2>
+  <p>
+    Para facilitar la lectura comparativa, el sistema clasifica escenarios
+    en tres categorías operativas:
+  </p>
+
+  <h3>Alpha</h3>
+  <p>
+    Escenarios con alta holgura efectiva y degradación lenta.
+    Mantienen capacidad de redistribución incluso bajo estrés prolongado.
+  </p>
+
+  <h3>Beta</h3>
+  <p>
+    Escenarios con holgura efectiva moderada o degradación acelerada.
+    Son funcionales, pero sensibles a perturbaciones.
+  </p>
+
+  <h3>Gamma</h3>
+  <p>
+    Escenarios con holgura efectiva baja o degradación rápida.
+    Tienden al colapso operativo.
+  </p>
+</section>
+
+<section>
+  <h2>5. Ranking estructural</h2>
+  <p>
+    El ranking se obtiene ordenando escenarios según:
+  </p>
+
+  <ol>
+    <li>Mayor H<sub>eff</sub> inicial</li>
+    <li>Menor |dH<sub>eff</sub>/dt|</li>
+  </ol>
+
+  <p>
+    Este orden define una jerarquía de resiliencia estructural.
+  </p>
+
+  <p class="note">
+    El ranking no implica valor moral, económico ni estratégico.
+    Indica únicamente estabilidad estructural relativa.
+  </p>
+</section>
+
+<section>
+  <h2>6. Interpretación de resultados</h2>
+  <p>
+    El comparador responde a una sola pregunta:
+  </p>
+
+  <blockquote>
+    ¿Qué sistema puede seguir redistribuyendo presión cuando los demás ya no?
+  </blockquote>
+
+  <p>
+    Un escenario mejor posicionado no es necesariamente más eficiente,
+    rentable o deseable; es simplemente más resistente al colapso.
+  </p>
+</section>
+
+<section>
+  <h2>7. Alcance y límites</h2>
+  <p>
+    El Comparador v4.2:
+  </p>
+  <ul>
+    <li>No recomienda acciones</li>
+    <li>No optimiza resultados</li>
+    <li>No reemplaza decisiones humanas</li>
+  </ul>
+
+  <p>
+    Su función es establecer un marco objetivo de comparación
+    previo a cualquier decisión.
+  </p>
+</section>
+
+<section>
+  <h2>8. Estado del comparador</h2>
+  <ul>
+    <li>Versión: v4.2</li>
+    <li>Estado: estable</li>
+    <li>Dependencia: Core SHE v4.5</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <p>
+    Un sistema no colapsa cuando falla.
+    Colapsa cuando ya no puede redistribuir presión.
+  </p>
+</footer>
+
+</body>
+</html>
