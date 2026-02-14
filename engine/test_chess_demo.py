@@ -7,6 +7,12 @@ import random
 from chess_demo import (
     validate_max_moves,
     render_board_svg,
+    get_load_legend_html,
+    get_load_legend_markdown,
+    calcular_carga_por_casilla,
+    obtener_color_por_carga,
+    calcular_carga_de_nodos,
+    get_color_for_load,
     run_game_stepwise,
     PIECE_CAPACITY,
     ACCESS_WEIGHT
@@ -139,6 +145,104 @@ class TestRenderBoardSvg:
         svg = render_board_svg(board)
         assert isinstance(svg, str)
         assert "<svg" in svg
+
+    def test_load_overlay_colors_in_svg(self):
+        """Verificar que el SVG contiene colores de carga."""
+        board = chess.Board(fen=None)
+        board.set_piece_at(chess.D4, chess.Piece(chess.QUEEN, chess.WHITE))
+        board.set_piece_at(chess.D8, chess.Piece(chess.ROOK, chess.BLACK))
+        board.set_piece_at(chess.D1, chess.Piece(chess.ROOK, chess.WHITE))
+        board.set_piece_at(chess.H4, chess.Piece(chess.PAWN, chess.BLACK))
+
+        svg = render_board_svg(board)
+
+        assert "#ff4d4d" in svg.lower()
+        assert "#7cfc00" in svg.lower()
+
+
+class TestNodeLoads:
+    """Tests para cálculo de carga por nodo."""
+
+    def test_calcular_carga_de_nodos_devuelve_64(self):
+        """Debe devolver una carga para cada casilla."""
+        board = chess.Board()
+        node_loads = calcular_carga_de_nodos(board)
+
+        assert isinstance(node_loads, dict)
+        assert len(node_loads) == 64
+        assert "a1" in node_loads
+        assert "h8" in node_loads
+
+    def test_calcular_carga_de_nodos_tablero_vacio(self):
+        """En tablero vacío, toda carga debe ser 0."""
+        board = chess.Board(fen=None)
+        node_loads = calcular_carga_de_nodos(board)
+
+        assert all(load == 0.0 for load in node_loads.values())
+
+    def test_calcular_carga_de_nodos_por_compromiso(self):
+        """Valida carga por amenaza, defensa y ataque."""
+        board = chess.Board(fen=None)
+        board.set_piece_at(chess.D1, chess.Piece(chess.ROOK, chess.WHITE))
+        board.set_piece_at(chess.D4, chess.Piece(chess.QUEEN, chess.WHITE))
+        board.set_piece_at(chess.D8, chess.Piece(chess.ROOK, chess.BLACK))
+        board.set_piece_at(chess.H4, chess.Piece(chess.PAWN, chess.BLACK))
+
+        node_loads = calcular_carga_de_nodos(board)
+
+        assert node_loads["d4"] == 1.0
+        assert node_loads["a1"] == 0.0
+
+    def test_calcular_carga_por_casilla_alias_equivalente(self):
+        """El alias nuevo debe coincidir con la función compatible."""
+        board = chess.Board()
+        assert calcular_carga_por_casilla(board) == calcular_carga_de_nodos(board)
+
+    def test_calcular_carga_de_nodos_valida_tipo(self):
+        """Debe fallar si board no es chess.Board."""
+        with pytest.raises(TypeError, match="board debe ser chess.Board"):
+            calcular_carga_de_nodos("invalid")
+
+
+class TestLoadColorMapping:
+    """Tests para mapeo de color por carga."""
+
+    def test_get_color_for_load_ranges(self):
+        """Verificar colores en umbrales definidos."""
+        assert get_color_for_load(0.0) == "#7CFC00"
+        assert get_color_for_load(0.24) == "#7CFC00"
+        assert get_color_for_load(0.25) == "#FFD700"
+        assert get_color_for_load(0.54) == "#FFD700"
+        assert get_color_for_load(0.55) == "#FF4D4D"
+        assert get_color_for_load(1.0) == "#FF4D4D"
+
+    def test_obtener_color_por_carga_equivalente(self):
+        """El alias antiguo debe mapear igual que la función nueva."""
+        for carga in [0.0, 0.2, 0.3, 0.7, 1.0]:
+            assert get_color_for_load(carga) == obtener_color_por_carga(carga)
+
+
+class TestLoadLegend:
+    """Tests para leyenda visual de carga."""
+
+    def test_get_load_legend_html_content(self):
+        """La leyenda visual debe incluir badges para tres niveles."""
+        legend_html = get_load_legend_html()
+
+        assert isinstance(legend_html, str)
+        assert "<div" in legend_html
+        assert "🟢" in legend_html
+        assert "🟡" in legend_html
+        assert "🔴" in legend_html
+
+    def test_get_load_legend_markdown_content(self):
+        """La leyenda textual de compatibilidad debe incluir tres niveles."""
+        legend = get_load_legend_markdown()
+
+        assert isinstance(legend, str)
+        assert "🟢" in legend
+        assert "🟡" in legend
+        assert "🔴" in legend
 
 
 class TestRunGameStepwise:

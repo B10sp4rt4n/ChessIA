@@ -16,12 +16,21 @@ logger = logging.getLogger(__name__)
 # -----------------------------
 # Validación
 # -----------------------------
-def validate_positive_float(value: float, name: str, max_val: Optional[float] = None) -> float:
-    """Valida que un valor sea float positivo."""
+def validate_positive_float(
+    value: float,
+    name: str,
+    max_val: Optional[float] = None,
+    allow_zero: bool = True
+) -> float:
+    """Valida que un valor sea numérico y positivo (estricto u opcionalmente no-negativo)."""
     if not isinstance(value, (int, float)):
-        raise TypeError(f"{name} debe ser numérico, recibido {type(value).__name__}")
-    if value < 0:
-        raise ValueError(f"{name} no puede ser negativo: {value}")
+        raise ValueError(f"{name} debe ser numérico, recibido {type(value).__name__}")
+    if allow_zero:
+        if value < 0:
+            raise ValueError(f"{name} no puede ser negativo: {value}")
+    else:
+        if value <= 0:
+            raise ValueError(f"{name} debe ser > 0: {value}")
     if max_val is not None and value > max_val:
         raise ValueError(f"{name} excede máximo permitido {max_val}: {value}")
     return float(value)
@@ -30,10 +39,34 @@ def validate_positive_float(value: float, name: str, max_val: Optional[float] = 
 def validate_steps(steps: int) -> int:
     """Valida número de pasos de simulación."""
     if not isinstance(steps, int):
-        raise TypeError(f"Steps debe ser int, recibido {type(steps).__name__}")
+        raise ValueError(f"steps debe ser int, recibido {type(steps).__name__}")
     if not 1 <= steps <= 1000:
-        raise ValueError(f"Steps fuera de rango [1, 1000]: {steps}")
+        raise ValueError(f"steps fuera de rango [1, 1000]: {steps}")
     return steps
+
+
+def validate_thresholds(thresholds: Dict[str, float]) -> Dict[str, float]:
+    """Valida objeto de umbrales para clasificación estructural."""
+    if not isinstance(thresholds, dict):
+        raise ValueError(f"thresholds debe ser dict, recibido {type(thresholds).__name__}")
+
+    required_keys = {"alpha_h_min", "alpha_decay_max", "beta_h_min"}
+    missing = required_keys - set(thresholds.keys())
+    if missing:
+        raise ValueError(f"thresholds incompleto. Faltan claves: {sorted(missing)}")
+
+    alpha_h_min = validate_positive_float(thresholds["alpha_h_min"], "alpha_h_min")
+    alpha_decay_max = validate_positive_float(thresholds["alpha_decay_max"], "alpha_decay_max")
+    beta_h_min = validate_positive_float(thresholds["beta_h_min"], "beta_h_min")
+
+    if alpha_h_min <= beta_h_min:
+        raise ValueError("alpha_h_min debe ser mayor que beta_h_min")
+
+    return {
+        "alpha_h_min": alpha_h_min,
+        "alpha_decay_max": alpha_decay_max,
+        "beta_h_min": beta_h_min,
+    }
 
 
 # -----------------------------
@@ -56,12 +89,22 @@ class Scenario:
     
     def __init__(self, name: str, H_eff_init: float, decay: float):
         try:
-            if not name or not isinstance(name, str):
+            if not isinstance(name, str) or not name.strip():
                 raise ValueError("Name debe ser string no vacío")
             
-            self.name = name
-            self.H_eff_init = validate_positive_float(H_eff_init, "H_eff_init", max_val=10000)
-            self.decay = validate_positive_float(decay, "decay", max_val=10000)
+            self.name = name.strip()
+            self.H_eff_init = validate_positive_float(
+                H_eff_init,
+                "H_eff_init",
+                max_val=10000,
+                allow_zero=False
+            )
+            self.decay = validate_positive_float(
+                decay,
+                "decay",
+                max_val=10000,
+                allow_zero=False
+            )
             
             logger.debug(f"Scenario creado: {name}, H_eff={H_eff_init}, decay={decay}")
             
@@ -99,7 +142,7 @@ class Scenario:
             logger.debug(f"Simulación completa: {len(values)} valores")
             return values
             
-        except (TypeError, ValueError) as e:
+        except ValueError as e:
             logger.error(f"Error en simulate para {self.name}: {e}")
             raise
         except Exception as e:
@@ -158,7 +201,7 @@ def classify(
         logger.debug(f"Clasificación: H_eff={H_eff:.1f}, dH={dH:.2f} → {result}")
         return result
         
-    except (TypeError, ValueError) as e:
+    except ValueError as e:
         logger.error(f"Error en classify: {e}")
         raise
 
@@ -170,7 +213,8 @@ def compare(
     scenarios: List[Scenario],
     alpha_h_min: float = ALPHA_H_EFF_MIN,
     alpha_decay_max: float = ALPHA_DECAY_MAX,
-    beta_h_min: float = BETA_H_EFF_MIN
+    beta_h_min: float = BETA_H_EFF_MIN,
+    steps: int = 1
 ) -> List[Dict]:
     """
     Compara múltiples escenarios y genera un ranking estructural.
@@ -180,6 +224,7 @@ def compare(
         alpha_h_min: Umbral Alpha para H_eff
         alpha_decay_max: Umbral Alpha para decay
         beta_h_min: Umbral Beta para H_eff
+        steps: Pasos de simulación (1-1000)
         
     Returns:
         Lista ordenada de diccionarios con métricas y clasificación
@@ -196,26 +241,32 @@ def compare(
     """
     try:
         if not isinstance(scenarios, list):
-            raise TypeError(f"scenarios debe ser lista, recibido {type(scenarios).__name__}")
+            raise ValueError(f"scenarios debe ser lista, recibido {type(scenarios).__name__}")
         if len(scenarios) == 0:
             logger.warning("compare llamado con lista vacía")
             return []
+
+        steps = validate_steps(steps)
+        alpha_h_min = validate_positive_float(alpha_h_min, "alpha_h_min")
+        alpha_decay_max = validate_positive_float(alpha_decay_max, "alpha_decay_max")
+        beta_h_min = validate_positive_float(beta_h_min, "beta_h_min")
         
         logger.info(f"Comparando {len(scenarios)} escenarios")
         results = []
 
         for s in scenarios:
             if not isinstance(s, Scenario):
-                raise TypeError(f"Elemento debe ser Scenario, recibido {type(s).__name__}")
+                raise ValueError(f"Elemento debe ser Scenario, recibido {type(s).__name__}")
             
             try:
-                series = s.simulate()
-                dH = abs(series[1] - series[0]) if len(series) > 1 else 0
-                cls = classify(series[0], dH, alpha_h_min, alpha_decay_max, beta_h_min)
+                series = s.simulate(steps=steps)
+                current_h_eff = series[-1] if steps > 1 else s.H_eff_init
+                dH = s.decay
+                cls = classify(current_h_eff, dH, alpha_h_min, alpha_decay_max, beta_h_min)
 
                 results.append({
                     "name": s.name,
-                    "H_eff": series[0],
+                    "H_eff": current_h_eff,
                     "dH_eff_dt": dH,
                     "class": cls
                 })
@@ -232,12 +283,30 @@ def compare(
         logger.info(f"Comparación completa: {len(results)} resultados")
         return results
         
-    except (TypeError, ValueError) as e:
+    except ValueError as e:
         logger.error(f"Error en compare: {e}")
         raise
     except Exception as e:
         logger.error(f"Error inesperado en compare: {e}", exc_info=True)
         raise RuntimeError(f"Fallo en comparación: {e}") from e
+
+
+def compare_with_thresholds(
+    scenarios: List[Scenario],
+    thresholds: Dict[str, float],
+    steps: int
+) -> List[Dict]:
+    """
+    API explícita para comparar escenarios usando objeto `thresholds` + `steps`.
+    """
+    validated = validate_thresholds(thresholds)
+    return compare(
+        scenarios=scenarios,
+        alpha_h_min=validated["alpha_h_min"],
+        alpha_decay_max=validated["alpha_decay_max"],
+        beta_h_min=validated["beta_h_min"],
+        steps=steps,
+    )
 
 
 # -----------------------------

@@ -21,6 +21,7 @@ autorizacion expresa.
 	- `demo.py` (Streamlit) - modo grafo
 	- `mcl_chess.py` - ajedrez estructural (experimental)
 	- `compare_v42.py` - comparador v4.2
+	- `compare_v42_ui_bridge.py` - puente UI → comparador
 
 ## Correr la web (estatica)
 Abre `she-core/web/index.html` en el navegador, o sirve el folder con un servidor estatico:
@@ -69,9 +70,41 @@ EXPERIMENTAL: Análisis estructural de partidas de ajedrez con métricas holíst
 ### Comparador v4.2
 ```bash
 cd engine
-streamlit run compare_v42.py
+streamlit run compare_v42_app.py
 ```
 Compara escenarios estructurales y clasifica en Alpha/Beta/Gamma según H_eff y degradación.
+
+### API de comparación (motor)
+```python
+from compare_v42 import Scenario, compare_with_thresholds
+
+scenarios = [
+	Scenario("Escenario A", 72.4, 0.8),
+	Scenario("Escenario B", 51.6, 2.1),
+	Scenario("Escenario C", 28.9, 4.5),
+]
+
+thresholds = {
+	"alpha_h_min": 60.0,
+	"alpha_decay_max": 1.0,
+	"beta_h_min": 30.0,
+}
+
+ranking = compare_with_thresholds(scenarios, thresholds, steps=10)
+```
+
+### API de integración para UI
+```python
+from compare_v42_ui_bridge import compare_from_ui
+
+ranking = compare_from_ui(
+	scenarios=scenarios,
+	alpha_h=60.0,
+	alpha_decay=1.0,
+	beta_h=30.0,
+	sim_steps=10,
+)
+```
 
 ### Chess Demo (Visualizador)
 ```bash
@@ -105,6 +138,7 @@ pytest --cov=. --cov-report=html
 
 **Test Summary (149 tests, 100% passing):**
 - test_compare_v42.py: 23 tests (Comparador v4.2)
+- test_compare_v42_ui_bridge.py: 4 tests (UI bridge)
 - test_mcl_chess.py: 21 tests (Chess core)
 - test_mcl_chess_coverage.py: 27 tests (Chess coverage boost)
 - test_demo.py: 29 tests (Graph mode)
