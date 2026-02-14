@@ -4,11 +4,12 @@
 import streamlit as st
 from compare_v42 import (
     Scenario,
-    compare,
     ALPHA_H_EFF_MIN,
     ALPHA_DECAY_MAX,
     BETA_H_EFF_MIN
 )
+from compare_v42_ui_bridge import compare_from_ui
+from explanations import obtener_explicacion_con_fuente
 import logging
 
 # Configurar logging
@@ -142,7 +143,13 @@ if st.button("🔍 Comparar Escenarios", type="primary"):
                 st.warning(f"Error en {name}: {e}")
         
         # Ejecutar comparación
-        ranking = compare(scenarios, alpha_h, alpha_decay, beta_h)
+        ranking = compare_from_ui(
+            scenarios=scenarios,
+            alpha_h=alpha_h,
+            alpha_decay=alpha_decay,
+            beta_h=beta_h,
+            sim_steps=sim_steps,
+        )
         
         st.session_state['ranking'] = ranking
         st.session_state['scenarios'] = scenarios
@@ -196,6 +203,7 @@ if 'ranking' in st.session_state:
     
     if selected_scenario in scenarios_dict:
         scenario = scenarios_dict[selected_scenario]
+        ranking_item = next((r for r in ranking if r["name"] == selected_scenario), None)
         sim_steps_display = st.session_state.get('sim_steps', 10)
         
         try:
@@ -224,6 +232,36 @@ if 'ranking' in st.session_state:
         except Exception as e:
             st.error(f"Error simulando {selected_scenario}: {e}")
             logger.error(f"Error en simulación: {e}", exc_info=True)
+
+        if ranking_item is not None:
+            st.divider()
+            st.subheader("🧠 Explicación del escenario")
+
+            oyente_type = st.radio(
+                "Selecciona el tipo de oyente:",
+                ["técnico", "no técnico", "gerencial", "usuario final"],
+                horizontal=True,
+            )
+
+            explanation_scenario = {
+                "name": ranking_item["name"],
+                "H_eff": ranking_item["H_eff"],
+                "decay": ranking_item["dH_eff_dt"],
+            }
+
+            try:
+                explicacion, fuente = obtener_explicacion_con_fuente(
+                    scenario=explanation_scenario,
+                    classification=ranking_item["class"],
+                    oyente_type=oyente_type,
+                )
+                if fuente == "IA":
+                    st.caption("Fuente de explicación: IA")
+                else:
+                    st.caption("Fuente de explicación: Local (fallback)")
+                st.text_area("Explicación", value=explicacion, height=180)
+            except ValueError as e:
+                st.error(f"Entrada inválida para explicación: {e}")
 
 # -----------------------------
 # Información adicional

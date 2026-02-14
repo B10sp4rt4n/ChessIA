@@ -58,6 +58,73 @@ def validate_max_moves(max_moves: int) -> int:
     return max_moves
 
 
+def get_cached_cost_validation(
+    cache_key: str,
+    *,
+    max_moves: int,
+    max_nodes: Optional[int] = None,
+    warn_threshold: float = 0.7,
+    force_refresh: bool = False
+) -> dict:
+    """Obtiene validación de costo con caché en session_state."""
+    cache = st.session_state.get(cache_key)
+    cache_params = (max_moves, max_nodes, warn_threshold)
+
+    if (
+        force_refresh
+        or cache is None
+        or cache.get("params") != cache_params
+    ):
+        result = validate_computational_cost(
+            max_moves=max_moves,
+            max_nodes=max_nodes,
+            warn_threshold=warn_threshold
+        )
+        st.session_state[cache_key] = {
+            "params": cache_params,
+            "result": result
+        }
+        return result
+
+    return cache["result"]
+
+
+def build_game_view_cache(game_history: List[Tuple[int, float, float, chess.Board, str]]) -> dict:
+    """Construye datos derivados para visualización (gráfico y lista de movimientos)."""
+    turns = [t for t, _, _, _, _ in game_history]
+    H_values = [h for _, h, _, _, _ in game_history]
+    H_eff_values = [he for _, _, he, _, _ in game_history]
+
+    chart_df = pd.DataFrame({
+        "Turno": turns,
+        "H (Holgura total)": H_values,
+        "H_eff (Holgura efectiva)": H_eff_values
+    })
+
+    moves_list = []
+    move_number = 1
+    white_move = None
+
+    for t, _, _, _, move_san in game_history:
+        if t == 0:
+            continue
+        if (t - 1) % 2 == 0:
+            white_move = move_san
+        else:
+            moves_list.append(f"{move_number}. {white_move} {move_san}")
+            move_number += 1
+            white_move = None
+
+    if white_move:
+        moves_list.append(f"{move_number}. {white_move}")
+
+    return {
+        "game_ref": game_history,
+        "chart_df": chart_df,
+        "moves_list": moves_list
+    }
+
+
 # -----------------------------
 # Funciones auxiliares
 # -----------------------------
@@ -181,13 +248,18 @@ def run_game_stepwise(max_moves: int = 50, rng: Optional[random.Random] = None) 
 # -----------------------------
 st.sidebar.header("Parámetros")
 max_turns = st.sidebar.slider("Máximo de turnos", 10, 100, 50, step=10)
+new_game_clicked = st.sidebar.button("🎲 Nueva partida")
 
 if max_turns <= 0:
     st.sidebar.error("El número de turnos debe ser mayor a 0")
     max_turns = 10
 
 # Validar costo computacional
-cost_validation = validate_computational_cost(max_moves=max_turns)
+cost_validation = get_cached_cost_validation(
+    "chess_demo_cost_validation",
+    max_moves=max_turns,
+    force_refresh=new_game_clicked
+)
 if cost_validation['warning']:
     if cost_validation['allowed']:
         st.sidebar.warning(cost_validation['warning'])
@@ -195,7 +267,7 @@ if cost_validation['warning']:
         st.sidebar.error(cost_validation['warning'])
         max_turns = 50  # Forzar valor seguro
 
-if st.sidebar.button("🎲 Nueva partida"):
+if new_game_clicked:
     try:
         # Crear nuevo RNG para cada partida manual
         new_rng = random.Random()
@@ -214,6 +286,10 @@ if "game" not in st.session_state:
     st.session_state["current_turn"] = 0
 
 game_history = st.session_state["game"]
+view_cache = st.session_state.get("chess_demo_view_cache")
+if view_cache is None or view_cache.get("game_ref") is not game_history:
+    view_cache = build_game_view_cache(game_history)
+    st.session_state["chess_demo_view_cache"] = view_cache
 
 # -----------------------------
 # Control de turnos
@@ -303,47 +379,13 @@ with col_info3:
 # Evolución de métricas
 # -----------------------------
 st.subheader("Evolución estructural")
-
-# Extraer datos para gráfico (optimizado)
-turns, H_values, H_eff_values = [], [], []
-for t, h, he, _, _ in game_history:
-    turns.append(t)
-    H_values.append(h)
-    H_eff_values.append(he)
-
-# Gráfico simple con Streamlit
-
-df = pd.DataFrame({
-    "Turno": turns,
-    "H (Holgura total)": H_values,
-    "H_eff (Holgura efectiva)": H_eff_values
-})
-
-st.line_chart(df.set_index("Turno"))
+st.line_chart(view_cache["chart_df"].set_index("Turno"))
 
 # -----------------------------
 # Lista de movimientos
 # -----------------------------
 with st.expander("📋 Ver lista completa de movimientos"):
-    moves_list = []
-    move_number = 1
-    white_move = None
-    
-    for idx, (t, _, _, _, move_san) in enumerate(game_history):
-        if t == 0:
-            continue  # Saltar posición inicial
-        
-        # Determinar si es movimiento de blancas o negras
-        if (t - 1) % 2 == 0:  # Blancas
-            white_move = move_san
-        else:  # Negras
-            moves_list.append(f"{move_number}. {white_move} {move_san}")
-            move_number += 1
-            white_move = None
-    
-    # Si quedó un movimiento de blancas sin pareja
-    if white_move:
-        moves_list.append(f"{move_number}. {white_move}")
+    moves_list = view_cache["moves_list"]
     
     # Mostrar en columnas para mejor legibilidad
     cols_per_row = 3

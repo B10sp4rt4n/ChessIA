@@ -12,6 +12,52 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def get_cached_cost_validation(
+    cache_key,
+    *,
+    validator,
+    max_moves,
+    max_nodes=None,
+    warn_threshold=0.7,
+    force_refresh=False
+):
+    """Valida costo computacional con caché en session_state."""
+    cache = st.session_state.get(cache_key)
+    cache_params = (max_moves, max_nodes, warn_threshold)
+
+    if (
+        force_refresh
+        or cache is None
+        or cache.get("params") != cache_params
+    ):
+        result = validator(
+            max_moves=max_moves,
+            max_nodes=max_nodes,
+            warn_threshold=warn_threshold
+        )
+        st.session_state[cache_key] = {
+            "params": cache_params,
+            "result": result
+        }
+        return result
+
+    return cache["result"]
+
+
+def get_cached_computation(cache_key, *, refs, compute_fn):
+    """Ejecuta compute_fn solo cuando cambian las referencias de entrada."""
+    cache = st.session_state.get(cache_key)
+    if cache is not None and cache.get("refs") == refs:
+        return cache["result"]
+
+    result = compute_fn()
+    st.session_state[cache_key] = {
+        "refs": refs,
+        "result": result
+    }
+    return result
+
 # Configuración de página
 st.set_page_config(
     page_title="SHE Core v4.5",
@@ -80,7 +126,6 @@ else:  # Comparador v4.2
 if scenario == "🎮 Chess Demo":
     import random
     from chess_demo import run_game_stepwise, render_board_svg
-    from mcl_chess import compute_holistic_metrics
     from rate_limiter import TimeoutError, validate_computational_cost
     import streamlit.components.v1 as components
     
@@ -105,20 +150,27 @@ Los conceptos demostrados son observables y educativos, pero **no representan el
     
     st.sidebar.header("Parámetros")
     max_turns = st.sidebar.slider("Máximo de turnos", 10, 100, 50, step=10, key="chess_max_turns")
+    new_game_clicked = st.sidebar.button("🎲 Nueva partida", key="chess_new_game")
     
     if max_turns <= 0:
         st.sidebar.error("El número de turnos debe ser mayor a 0")
         st.stop()
     
     # Validar costo computacional
-    cost_validation = validate_computational_cost(max_moves=max_turns, max_nodes=10)
+    cost_validation = get_cached_cost_validation(
+        "app_chess_cost_validation",
+        validator=validate_computational_cost,
+        max_moves=max_turns,
+        max_nodes=10,
+        force_refresh=new_game_clicked
+    )
     if cost_validation['warning']:
         if cost_validation['allowed']:
             st.sidebar.warning(cost_validation['warning'])
         else:
             st.sidebar.error(cost_validation['warning'])
     
-    if st.sidebar.button("🎲 Nueva partida", key="chess_new_game"):
+    if new_game_clicked:
         try:
             new_rng = random.Random()
             with st.spinner(f"Generando partida ({max_turns} turnos máx)..."):
@@ -312,9 +364,16 @@ elif scenario == "🕸️ Demo Grafo":
     
     st.sidebar.header("Parámetros")
     num_nodes = st.sidebar.slider("Número de nodos", 3, 20, 6, key="grafo_num_nodes")
+    generate_graph_clicked = st.sidebar.button("🎲 Generar sistema", key="grafo_generate")
     
     # Validar costo computacional
-    cost_validation = validate_computational_cost(max_moves=100, max_nodes=num_nodes)
+    cost_validation = get_cached_cost_validation(
+        "app_grafo_cost_validation",
+        validator=validate_computational_cost,
+        max_moves=100,
+        max_nodes=num_nodes,
+        force_refresh=generate_graph_clicked
+    )
     if cost_validation['warning']:
         if cost_validation['allowed']:
             st.sidebar.warning(cost_validation['warning'])
@@ -322,7 +381,7 @@ elif scenario == "🕸️ Demo Grafo":
             st.sidebar.error(cost_validation['warning'])
             num_nodes = 6
     
-    if st.sidebar.button("🎲 Generar sistema", key="grafo_generate"):
+    if generate_graph_clicked:
         try:
             new_rng = random.Random()
             with st.spinner(f"Generando sistema con {num_nodes} nodos..."):
@@ -347,7 +406,11 @@ elif scenario == "🕸️ Demo Grafo":
     st.subheader("📊 Métricas Estructurales")
     
     try:
-        H, H_eff, S = compute_metrics(G, nodes)
+        H, H_eff, S = get_cached_computation(
+            "app_grafo_metrics_cache",
+            refs=(G, nodes),
+            compute_fn=lambda: compute_metrics(G, nodes)
+        )
         
         col1, col2, col3, col4 = st.columns(4)
         
