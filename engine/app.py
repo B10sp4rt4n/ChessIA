@@ -125,7 +125,7 @@ else:  # Comparador v4.2
 # ESCENARIO 1: CHESS DEMO
 if scenario == "🎮 Chess Demo":
     import random
-    from chess_demo import run_game_stepwise, render_board_svg
+    from chess_demo import run_game_stepwise, render_board_svg, get_load_legend_html
     from rate_limiter import TimeoutError, validate_computational_cost
     import streamlit.components.v1 as components
     
@@ -151,6 +151,7 @@ Los conceptos demostrados son observables y educativos, pero **no representan el
     st.sidebar.header("Parámetros")
     max_turns = st.sidebar.slider("Máximo de turnos", 10, 100, 50, step=10, key="chess_max_turns")
     new_game_clicked = st.sidebar.button("🎲 Nueva partida", key="chess_new_game")
+    show_load_legend = st.sidebar.checkbox("Mostrar leyenda de carga", value=True, key="chess_show_load_legend")
     
     if max_turns <= 0:
         st.sidebar.error("El número de turnos debe ser mayor a 0")
@@ -265,6 +266,8 @@ Los conceptos demostrados son observables y educativos, pero **no representan el
         try:
             svg_board = render_board_svg(board, size=400)
             components.html(svg_board, height=420, scrolling=False)
+            if show_load_legend:
+                st.markdown(get_load_legend_html(), unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Error renderizando tablero: {e}")
             logger.error(f"Error en render_board_svg: {e}", exc_info=True)
