@@ -650,6 +650,7 @@ else:  # scenario == "📊 Comparador v4.2"
         ALPHA_DECAY_MAX,
         BETA_H_EFF_MIN
     )
+    from explanations import obtener_explicacion_con_fuente
     
     st.title("Structural Health Engine · Comparador v4.2")
     st.caption("Clasificación y ranking estructural de escenarios")
@@ -834,6 +835,70 @@ else:  # scenario == "📊 Comparador v4.2"
                 except Exception as e:
                     st.error(f"Error mostrando resultados: {e}")
                     logger.error(f"Error: {e}", exc_info=True)
+        
+        # Explicaciones Inteligentes
+        st.divider()
+        st.subheader("🤖 Explicaciones Inteligentes")
+        
+        explain_scenario = st.selectbox(
+            "Selecciona escenario para explicar:",
+            [r['name'] for r in ranking],
+            key="comparador_explain_scenario"
+        )
+        
+        if explain_scenario:
+            ranking_item = next((r for r in ranking if r['name'] == explain_scenario), None)
+            
+            if ranking_item:
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    oyente_type = st.radio(
+                        "Tipo de audiencia:",
+                        ["técnico", "no técnico", "gerencial", "usuario final"],
+                        horizontal=True,
+                        key="comparador_oyente"
+                    )
+                
+                with col2:
+                    # Mostrar fuente de explicación
+                    if st.session_state.get("openai_api_key") and st.session_state.openai_api_key != "sk-your-key-here":
+                        st.info("🤖 Fuente: **IA**")
+                    else:
+                        st.warning("🔄 Fuente: **Fallback Local**")
+                
+                explanation_scenario = {
+                    "name": ranking_item["name"],
+                    "H_eff": ranking_item["H_eff"],
+                    "decay": ranking_item["dH_eff_dt"],
+                }
+                
+                try:
+                    with st.spinner("Generando explicación..."):
+                        explicacion, fuente = obtener_explicacion_con_fuente(
+                            scenario=explanation_scenario,
+                            classification=ranking_item["class"],
+                            oyente_type=oyente_type,
+                        )
+                    
+                    # Badge de fuente
+                    if fuente == "IA":
+                        st.markdown("**📡 Generado por IA (OpenAI GPT-4)**")
+                    else:
+                        st.markdown("**⚙️ Generado por motor de reglas local**")
+                    
+                    st.text_area(
+                        "Narrativa estructural:",
+                        value=explicacion,
+                        height=200,
+                        key="comparador_explicacion_text"
+                    )
+                
+                except ValueError as e:
+                    st.error(f"❌ Entrada inválida: {e}")
+                except Exception as e:
+                    st.error(f"❌ Error generando explicación: {e}")
+                    logger.error(f"Error en explicaciones: {e}", exc_info=True)
 
 # -----------------------------
 # Footer
