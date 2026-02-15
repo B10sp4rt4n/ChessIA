@@ -46,12 +46,42 @@ pip install -r requirements-dev.txt
 - `streamlit==1.54.0` - Framework de demos interactivos
 - `networkx==3.6.1` - Análisis de grafos
 - `python-chess==1.999` - Motor de ajedrez
+- `openai==1.12.0` - Explicaciones inteligentes con IA
 - `pytest==9.0.2` - Testing framework
 - `pytest-cov==7.0.0` - Cobertura de tests
 
 **Nota:** `requirements.txt` usa versiones exactas (lockfile) para reproducibilidad en producción. `requirements-dev.txt` usa rangos compatibles para desarrollo y CI/CD.
 
+## Configuración de OpenAI (Opcional)
+
+El sistema incluye explicaciones inteligentes generadas por IA. Para activar esta funcionalidad:
+
+### 1. Crear archivo de configuración
+```bash
+cp .env.example .env
+```
+
+### 2. Agregar tu API key de OpenAI
+Edita `.env` y reemplaza `sk-your-key-here` con tu clave real:
+```bash
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxx
+```
+
+### 3. Obtener API key
+Si no tienes una, obtén tu clave en [platform.openai.com](https://platform.openai.com/api-keys)
+
+### Modo Fallback (sin OpenAI)
+Si no configuras la API key, el sistema funciona con explicaciones basadas en reglas locales. Verás el indicador `LOCAL_FALLBACK` en lugar de `IA` en las explicaciones.
+
+**⚠️ Importante:** El archivo `.env` está en `.gitignore` para proteger tu API key. Nunca lo subas al repositorio.
+
 ## Correr demos de Python
+
+### Método recomendado (con variables de entorno)
+```bash
+./run_app.sh
+```
+Este script carga automáticamente las variables de entorno desde `.env` antes de iniciar la aplicación.
 
 ### Demo Grafo (Streamlit)
 ```bash
