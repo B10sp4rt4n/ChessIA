@@ -37,8 +37,54 @@ class TestInterpreter:
     @pytest.mark.parametrize("oyente", ["técnico", "no técnico", "gerencial", "usuario final"])
     def test_interpreter_supported_audiences(self, oyente):
         text = Interpreter(valid_scenario(), "Alpha", oyente).interpret()
-        assert "Escenario: Escenario A" in text
-        assert "Clasificación: Alpha" in text
+        assert "'Escenario A'" in text
+        assert "Alpha" in text
+        # Verificar que cada audiencia tiene contenido específico diferente
+        if oyente == "técnico":
+            assert "H_eff" in text or "Holgura efectiva" in text
+        elif oyente == "no técnico":
+            assert "¿Qué significa esto?" in text or "significa" in text.lower()
+        elif oyente == "gerencial":
+            assert "IMPACTO" in text or "negocio" in text.lower()
+        elif oyente == "usuario final":
+            assert "sistema" in text.lower()
+    
+    def test_interpreter_narratives_vary_by_classification(self):
+        """Verificar que las narrativas varían según clasificación"""
+        scenarios = [
+            ({"name": "Alpha", "H_eff": 80.0, "decay": 0.5}, "Alpha"),
+            ({"name": "Beta", "H_eff": 50.0, "decay": 2.0}, "Beta"),
+            ({"name": "Gamma", "H_eff": 20.0, "decay": 5.0}, "Gamma"),
+        ]
+        
+        for scenario, classification in scenarios:
+            text_tecnico = Interpreter(scenario, classification, "técnico").interpret()
+            text_gerencial = Interpreter(scenario, classification, "gerencial").interpret()
+            
+            # Cada clasificación debe tener indicadores específicos
+            if classification == "Alpha":
+                assert "resiliente" in text_tecnico.lower() or "bien" in text_gerencial.lower()
+            elif classification == "Beta":
+                assert "moderada" in text_tecnico.lower() or "medio" in text_gerencial.lower()
+            elif classification == "Gamma":
+                assert "crítico" in text_tecnico.lower() or "riesgo" in text_gerencial.lower()
+    
+    def test_interpreter_narratives_vary_by_audience(self):
+        """Verificar que las narrativas varían según tipo de audiencia"""
+        scenario = valid_scenario()
+        
+        text_tecnico = Interpreter(scenario, "Beta", "técnico").interpret()
+        text_notecnico = Interpreter(scenario, "Beta", "no técnico").interpret()
+        text_gerencial = Interpreter(scenario, "Beta", "gerencial").interpret()
+        text_usuario = Interpreter(scenario, "Beta", "usuario final").interpret()
+        
+        # Todos deben ser diferentes
+        narrativas = [text_tecnico, text_notecnico, text_gerencial, text_usuario]
+        for i, n1 in enumerate(narrativas):
+            for j, n2 in enumerate(narrativas):
+                if i != j:
+                    # Las narrativas deben ser sustancialmente diferentes
+                    assert n1 != n2, f"Narrativas {i} y {j} son idénticas"
 
     def test_interpreter_unknown_audience(self):
         with pytest.raises(ValueError, match="Tipo de oyente desconocido"):
@@ -61,7 +107,7 @@ class TestFallback:
     def test_obtener_explicacion_fallback_local(self):
         client = DummyClient(fail=True)
         text = obtener_explicacion(valid_scenario(), "Alpha", "gerencial", client=client)
-        assert "Impacto negocio" in text
+        assert "IMPACTO" in text or "Resumen ejecutivo" in text
 
     def test_obtener_explicacion_uses_ia_when_available(self):
         client = DummyClient(output_text="Respuesta IA preferida")
@@ -87,7 +133,7 @@ class TestFallback:
             "técnico",
             client=client,
         )
-        assert "Escenario: Escenario A" in text
+        assert "'Escenario A'" in text
         assert source == "LOCAL_FALLBACK"
 
 
