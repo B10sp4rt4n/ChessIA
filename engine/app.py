@@ -922,8 +922,10 @@ else:  # scenario == "📊 Comparador v4.2"
                     else:
                         st.warning("🔄 Fuente: **Fallback Local**")
                 
+                # Crear escenario con contexto específico de SISTEMAS ESTRUCTURALES
+                # El contexto diferenciado permite que la IA genere narrativas apropiadas al dominio
                 explanation_scenario = {
-                    "name": ranking_item["name"],
+                    "name": f"Sistema estructural '{ranking_item['name']}' - H_eff={ranking_item['H_eff']:.1f} - tasa de degradación={ranking_item['dH_eff_dt']:.2f}/paso - clasificación {ranking_item['class']}",
                     "H_eff": ranking_item["H_eff"],
                     "decay": ranking_item["dH_eff_dt"],
                 }

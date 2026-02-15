@@ -282,9 +282,13 @@ def generar_narrativa_posicion(
     black_pieces = len([p for p in board.piece_map().values() if p.color == chess.BLACK])
     total_pieces = white_pieces + black_pieces
     
-    # Crear escenario para explicación con métricas completas
+    # Contar movilidad
+    legal_moves_count = board.legal_moves.count()
+    
+    # Crear escenario con contexto específico de AJEDREZ para la IA
+    # El contexto diferenciado permite que la IA genere narrativas apropiadas al dominio
     scenario = {
-        "name": f"Turno {turn}: {total_pieces} piezas ({white_pieces}♔ vs {black_pieces}♚)",
+        "name": f"Posición de ajedrez (movimiento {turn}): {total_pieces} piezas activas - {white_pieces}♔ blancas vs {black_pieces}♚ negras - {legal_moves_count} movimientos legales - ratio de movilidad {ratio:.1f}%",
         "H_eff": H_eff,
         "decay": max(decay_rate, 0.001)  # Evitar decay=0 para validación
     }
