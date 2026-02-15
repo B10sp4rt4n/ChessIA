@@ -873,6 +873,9 @@ else:  # scenario == "📊 Comparador v4.2"
                     "decay": ranking_item["dH_eff_dt"],
                 }
                 
+                # Generar key única basada en escenario, clasificación y audiencia
+                explanation_key = f"exp_{explain_scenario}_{ranking_item['class']}_{oyente_type.replace(' ', '_')}"
+                
                 try:
                     with st.spinner("Generando explicación..."):
                         explicacion, fuente = obtener_explicacion_con_fuente(
@@ -887,11 +890,13 @@ else:  # scenario == "📊 Comparador v4.2"
                     else:
                         st.markdown("**⚙️ Generado por motor de reglas local**")
                     
+                    # Text area con key dinámica que cambia cuando cambian los parámetros
                     st.text_area(
                         "Narrativa estructural:",
                         value=explicacion,
                         height=200,
-                        key="comparador_explicacion_text"
+                        key=explanation_key,
+                        disabled=True  # Solo lectura para evitar edición accidental
                     )
                 
                 except ValueError as e:

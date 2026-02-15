@@ -66,12 +66,28 @@ def obtener_explicacion_ia(
     classification_clean = _validate_classification(classification)
     oyente_clean = _validate_oyente_type(oyente_type)
 
+    # Personalizar mensaje del sistema según audiencia
+    system_messages = {
+        "técnico": "Eres un experto en análisis estructural de sistemas complejos. Explicas métricas técnicas con precisión, incluyendo ratios, recomendaciones específicas y acciones preventivas.",
+        "no técnico": "Eres un comunicador experto que explica conceptos técnicos de forma simple usando analogías y lenguaje cotidiano, sin perder precisión.",
+        "gerencial": "Eres un consultor ejecutivo que traduce métricas técnicas a impacto de negocio, ROI, decisiones estratégicas y riesgos operativos.",
+        "usuario final": "Eres un asistente amigable que explica tecnología de forma ultra-simple, enfocándote en qué significa para el usuario y qué debe hacer."
+    }
+    
+    system_msg = system_messages.get(oyente_clean, system_messages["técnico"])
+    
+    # Prompt estructurado con contexto completo
     prompt = (
-        f"El sistema clasificó el escenario como {classification_clean}. "
-        f"Explica por qué fue clasificado así para un oyente {oyente_clean}. "
-        f"Usa lenguaje claro y accionable. "
-        f"Detalles: nombre={scenario_clean['name']}, H_eff={scenario_clean['H_eff']:.2f}, "
-        f"decay={scenario_clean['decay']:.2f}."
+        f"Escenario: '{scenario_clean['name']}'\n"
+        f"Clasificación: {classification_clean}\n"
+        f"Holgura efectiva (H_eff): {scenario_clean['H_eff']:.2f}\n"
+        f"Tasa de degradación (dH/dt): {scenario_clean['decay']:.2f}/paso\n\n"
+        f"Genera una explicación COMPLETA para audiencia '{oyente_clean}' que incluya:\n"
+        f"1. Por qué recibió esta clasificación\n"
+        f"2. Qué significa cada métrica en este contexto\n"
+        f"3. Implicaciones prácticas\n"
+        f"4. Recomendaciones accionables específicas\n\n"
+        f"Usa formato claro con emojis. NO CORTES LA EXPLICACIÓN A LA MITAD. Completa todas las secciones."
     )
 
     try:
@@ -90,11 +106,11 @@ def obtener_explicacion_ia(
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "Eres un experto en análisis estructural de sistemas complejos. Explicas métricas de salud estructural de forma clara y accionable."},
+                    {"role": "system", "content": system_msg},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
-                max_tokens=220,
+                max_tokens=600,  # Aumentado de 220 a 600 para permitir explicaciones completas
             )
             text = response.choices[0].message.content
         else:
