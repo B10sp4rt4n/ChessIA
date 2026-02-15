@@ -22,7 +22,6 @@ from rate_limiter import (
     TimeoutError,
     validate_computational_cost
 )
-from explanations import obtener_explicacion_con_fuente
 
 # Configurar logging
 logging.basicConfig(
@@ -239,82 +238,6 @@ def get_load_legend_markdown() -> str:
 def get_color_for_load(load: float) -> str:
     """Compatibilidad retroactiva: alias de obtener_color_por_carga()."""
     return obtener_color_por_carga(load)
-
-
-def generar_narrativa_posicion(
-    board: chess.Board,
-    H: float,
-    H_eff: float,
-    turn: int,
-    oyente_type: str = "técnico"
-) -> Tuple[str, str]:
-    """
-    Genera narrativa del estado estructural de la posición de ajedrez.
-    
-    Returns:
-        Tuple[str, str]: (explicacion, fuente)
-    """
-    # Clasificar estado según ratio H_eff/H (capacidad accesible vs total)
-    # Umbrales calibrados para ajedrez:
-    # - Posición inicial: H≈98, H_eff≈20, ratio≈20%
-    # - Medio juego: H≈50-70, H_eff≈10-15, ratio≈15-20%
-    # - Final: H≈20-40, H_eff≈5-10, ratio≈15-25%
-    ratio = (H_eff / H * 100) if H > 0 else 0
-    
-    if ratio >= 15:  # ≥15% de capacidad accesible: sistema saludable
-        classification = "Alpha"
-    elif ratio >= 8:  # 8-15% accesible: sistema funcional
-        classification = "Beta"
-    else:  # <8% accesible: sistema degradado
-        classification = "Gamma"
-    
-    # Calcular tasa de degradación basada en el turno
-    # Si H_eff disminuye, decay > 0; si aumenta, decay < 0
-    if turn > 0:
-        # Estimación: en posición inicial H_eff≈20, asumimos degradación gradual
-        initial_h_eff = 20.0  # H_eff típico de posición inicial
-        decay_rate = (initial_h_eff - H_eff) / turn
-    else:
-        decay_rate = 0.0  # Posición inicial, sin degradación
-    
-    # Contar piezas
-    white_pieces = len([p for p in board.piece_map().values() if p.color == chess.WHITE])
-    black_pieces = len([p for p in board.piece_map().values() if p.color == chess.BLACK])
-    total_pieces = white_pieces + black_pieces
-    
-    # Contar movilidad
-    legal_moves_count = board.legal_moves.count()
-    
-    # Crear escenario con contexto específico de AJEDREZ para la IA
-    # El contexto diferenciado permite que la IA genere narrativas apropiadas al dominio
-    scenario = {
-        "name": f"Posición de ajedrez (movimiento {turn}): {total_pieces} piezas activas - {white_pieces}♔ blancas vs {black_pieces}♚ negras - {legal_moves_count} movimientos legales - ratio de movilidad {ratio:.1f}%",
-        "H_eff": H_eff,
-        "decay": max(decay_rate, 0.001)  # Evitar decay=0 para validación
-    }
-    
-    try:
-        explicacion, fuente = obtener_explicacion_con_fuente(
-            scenario=scenario,
-            classification=classification,
-            oyente_type=oyente_type
-        )
-        return explicacion, fuente
-    except Exception as e:
-        logger.warning(f"Error generando narrativa: {e}")
-        # Fallback básico mejorado
-        estado_emoji = "✅" if classification == "Alpha" else "⚠️" if classification == "Beta" else "🚨"
-        return (
-            f"{estado_emoji} **Análisis Estructural - Turno {turn}**\n\n"
-            f"**Clasificación:** {classification}\n"
-            f"**Piezas activas:** {total_pieces} ({white_pieces} blancas, {black_pieces} negras)\n\n"
-            f"**Métricas:**\n"
-            f"- Holgura total (H): {H:.1f}\n"
-            f"- Holgura efectiva (H_eff): {H_eff:.1f}\n"
-            f"- Ratio accesibilidad: {ratio:.1f}%\n"
-            f"- Tasa de cambio: {decay_rate:.2f}/turno\n\n"
-            f"**Interpretación:** El sistema tiene {ratio:.0f}% de su capacidad estructural accesible."
-        ), "LOCAL_FALLBACK"
 
 
 def calcular_carga_de_nodos(board: chess.Board) -> Dict[str, float]:

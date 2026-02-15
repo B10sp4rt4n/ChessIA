@@ -165,7 +165,8 @@ else:  # Comparador v4.2
 # ESCENARIO 1: CHESS DEMO
 if scenario == "🎮 Chess Demo":
     import random
-    from chess_demo import run_game_stepwise, render_board_svg, get_load_legend_html, generar_narrativa_posicion
+    from chess_demo import run_game_stepwise, render_board_svg, get_load_legend_html
+    from narrativas_chess import generar_narrativa_chess
     from rate_limiter import TimeoutError, validate_computational_cost
     import streamlit.components.v1 as components
     
@@ -364,7 +365,7 @@ Los conceptos demostrados son observables y educativos, pero **no representan el
     
     try:
         with st.spinner("Generando análisis..."):
-            narrativa, fuente = generar_narrativa_posicion(
+            narrativa, fuente = generar_narrativa_chess(
                 board=board,
                 H=H,
                 H_eff=H_eff,
@@ -374,9 +375,9 @@ Los conceptos demostrados son observables y educativos, pero **no representan el
         
         # Badge de fuente
         if fuente == "IA":
-            st.markdown("**📡 Análisis generado por IA (OpenAI GPT-4)**")
+            st.markdown("**📡 Análisis generado por IA (OpenAI GPT-4) - Motor específico de Ajedrez**")
         else:
-            st.markdown("**⚙️ Análisis generado por motor de reglas local**")
+            st.markdown("**⚙️ Análisis generado por motor de reglas local - Motor específico de Ajedrez**")
         
         # Mostrar narrativa
         st.text_area(
@@ -443,6 +444,7 @@ elif scenario == "🕸️ Demo Grafo":
     import matplotlib.pyplot as plt
     from demo import build_graph, compute_metrics, TimeoutError
     from rate_limiter import validate_computational_cost
+    from explanations import obtener_explicacion_con_fuente
     
     st.title("Structural Health Engine · Demo Grafo")
     st.caption("Demo experimental — holgura, accesibilidad estructural y colapso")
@@ -690,6 +692,65 @@ elif scenario == "🕸️ Demo Grafo":
             })
         
         st.dataframe(node_data, width='stretch', hide_index=True)
+        
+        # Narrativas Inteligentes para Grafo
+        st.divider()
+        st.subheader("🤖 Análisis Narrativo del Sistema de Red")
+        st.caption("Explicación automatizada del estado estructural de la red")
+        
+        from narrativas_grafo import generar_narrativa_grafo
+        
+        col_narrativa1, col_narrativa2 = st.columns([2, 1])
+        
+        with col_narrativa1:
+            oyente_grafo = st.radio(
+                "Tipo de audiencia:",
+                ["técnico", "no técnico", "gerencial", "usuario final"],
+                horizontal=True,
+                key="grafo_oyente"
+            )
+        
+        with col_narrativa2:
+            # Mostrar fuente de explicación
+            if st.session_state.get("openai_api_key") and st.session_state.openai_api_key != "sk-your-key-here":
+                st.info("🤖 Fuente: **IA**")
+            else:
+                st.warning("🔄 Fuente: **Local**")
+        
+        # Generar key única para forzar regeneración cuando cambian las métricas
+        h_key = int(H * 10)
+        h_eff_key = int(H_eff * 10)
+        s_key = int(S * 1000)
+        narrative_key = f"grafo_narrative_{num_nodes}_{h_key}_{h_eff_key}_{s_key}_{oyente_grafo.replace(' ', '_')}"
+        
+        try:
+            with st.spinner("Generando análisis..."):
+                narrativa, fuente = generar_narrativa_grafo(
+                    G=G,
+                    nodes=nodes,
+                    H=H,
+                    H_eff=H_eff,
+                    S=S,
+                    oyente_type=oyente_grafo
+                )
+            
+            # Badge de fuente
+            if fuente == "IA":
+                st.markdown("**📡 Análisis generado por IA (OpenAI GPT-4) - Motor específico de Redes/Grafos**")
+            else:
+                st.markdown("**⚙️ Análisis generado por motor de reglas local - Motor específico de Redes/Grafos**")
+            
+            # Mostrar narrativa
+            st.text_area(
+                "Análisis estructural de la red:",
+                value=narrativa,
+                height=400,
+                key=narrative_key,
+                disabled=True
+            )
+        except Exception as e:
+            st.error(f"❌ Error generando análisis: {e}")
+            logger.error(f"Error en narrativa grafo: {e}", exc_info=True)
         
     except Exception as e:
         st.error(f"Error: {e}")
@@ -946,9 +1007,9 @@ else:  # scenario == "📊 Comparador v4.2"
                     
                     # Badge de fuente
                     if fuente == "IA":
-                        st.markdown("**📡 Generado por IA (OpenAI GPT-4)**")
+                        st.markdown("**📡 Generado por IA (OpenAI GPT-4) - Motor específico de Sistemas Estructurales/Comparación**")
                     else:
-                        st.markdown("**⚙️ Generado por motor de reglas local**")
+                        st.markdown("**⚙️ Generado por motor de reglas local - Motor específico de Sistemas Estructurales/Comparación**")
                     
                     # Text area con key dinámica que cambia cuando cambian los parámetros
                     st.text_area(
