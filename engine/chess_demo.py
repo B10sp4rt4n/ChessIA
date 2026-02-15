@@ -11,6 +11,7 @@ import chess
 import chess.svg
 import random
 import logging
+import os
 from mcl_chess import (
     PIECE_CAPACITY,
     ACCESS_WEIGHT,
@@ -21,6 +22,7 @@ from rate_limiter import (
     TimeoutError,
     validate_computational_cost
 )
+from explanations import obtener_explicacion_con_fuente
 
 # Configurar logging
 logging.basicConfig(
@@ -247,6 +249,60 @@ def get_color_for_load(load: float) -> str:
     return obtener_color_por_carga(load)
 
 
+def generar_narrativa_posicion(
+    board: chess.Board,
+    H: float,
+    H_eff: float,
+    turn: int,
+    oyente_type: str = "técnico"
+) -> Tuple[str, str]:
+    """
+    Genera narrativa del estado estructural de la posición de ajedrez.
+    
+    Returns:
+        Tuple[str, str]: (explicacion, fuente)
+    """
+    # Clasificar estado según H_eff
+    if H_eff > 50:
+        classification = "Alpha"
+    elif H_eff > 20:
+        classification = "Beta"
+    else:
+        classification = "Gamma"
+    
+    # Calcular decay simulado (asumiendo degradación lineal)
+    decay_rate = (100 - H_eff) / max(turn, 1)
+    
+    # Contar piezas
+    white_pieces = len([p for p in board.piece_map().values() if p.color == chess.WHITE])
+    black_pieces = len([p for p in board.piece_map().values() if p.color == chess.BLACK])
+    total_pieces = white_pieces + black_pieces
+    
+    # Crear escenario para explicación
+    scenario = {
+        "name": f"Turno {turn} ({total_pieces} piezas)",
+        "H_eff": H_eff,
+        "decay": decay_rate
+    }
+    
+    try:
+        explicacion, fuente = obtener_explicacion_con_fuente(
+            scenario=scenario,
+            classification=classification,
+            oyente_type=oyente_type
+        )
+        return explicacion, fuente
+    except Exception as e:
+        logger.warning(f"Error generando narrativa: {e}")
+        # Fallback básico
+        return (
+            f"📊 Turno {turn}\n"
+            f"Holgura efectiva: {H_eff:.1f}\n"
+            f"Estado: {classification}\n"
+            f"El sistema tiene {total_pieces} piezas activas ({white_pieces} blancas, {black_pieces} negras)."
+        ), "LOCAL_FALLBACK"
+
+
 def calcular_carga_de_nodos(board: chess.Board) -> Dict[str, float]:
     """Compatibilidad retroactiva: alias de calcular_carga_por_casilla()."""
     return calcular_carga_por_casilla(board)
@@ -416,6 +472,65 @@ col2.metric("Holgura efectiva (H_eff)", f"{H_eff:.1f}")
 
 state = "VIVO" if H_eff > 0.1 else ("ZOMBI" if H > 0 else "COLAPSADO")
 col3.metric("Estado estructural", state)
+
+# -----------------------------
+# Narrativa Inteligente de la Posición
+# -----------------------------
+st.divider()
+with st.expander("🤖 Análisis Narrativo de la Posición", expanded=False):
+    st.caption("Explicación automatizada del estado estructural actual")
+    
+    col_narrativa1, col_narrativa2 = st.columns([2, 1])
+    
+    with col_narrativa1:
+        oyente_chess = st.radio(
+            "Tipo de audiencia:",
+            ["técnico", "no técnico", "gerencial", "usuario final"],
+            horizontal=True,
+            key="chess_oyente"
+        )
+    
+    with col_narrativa2:
+        # Mostrar fuente de explicación
+        if st.session_state.get("openai_api_key") and st.session_state.openai_api_key != "sk-your-key-here":
+            st.info("🤖 Fuente: **IA**")
+        else:
+            st.warning("🔄 Fuente: **Local**")
+    
+    # Generar key única para forzar regeneración cuando cambian las métricas
+    h_key = int(H * 10)
+    h_eff_key = int(H_eff * 10)
+    narrative_key = f"chess_narrative_{turn}_{h_key}_{h_eff_key}_{oyente_chess.replace(' ', '_')}"
+    
+    try:
+        with st.spinner("Generando análisis..."):
+            narrativa, fuente = generar_narrativa_posicion(
+                board=board,
+                H=H,
+                H_eff=H_eff,
+                turn=turn,
+                oyente_type=oyente_chess
+            )
+        
+        # Badge de fuente
+        if fuente == "IA":
+            st.markdown("**📡 Análisis generado por IA (OpenAI GPT-4)**")
+        else:
+            st.markdown("**⚙️ Análisis generado por motor de reglas local**")
+        
+        # Mostrar narrativa
+        st.text_area(
+            "Análisis estructural de la posición:",
+            value=narrativa,
+            height=300,
+            key=narrative_key,
+            disabled=True
+        )
+    except Exception as e:
+        st.error(f"❌ Error generando análisis: {e}")
+        logger.error(f"Error en narrativa chess: {e}", exc_info=True)
+
+st.divider()
 
 # -----------------------------
 # Tablero
