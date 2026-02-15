@@ -873,8 +873,11 @@ else:  # scenario == "📊 Comparador v4.2"
                     "decay": ranking_item["dH_eff_dt"],
                 }
                 
-                # Generar key única basada en escenario, clasificación y audiencia
-                explanation_key = f"exp_{explain_scenario}_{ranking_item['class']}_{oyente_type.replace(' ', '_')}"
+                # Generar key única basada en TODOS los parámetros que afectan la narrativa
+                # Incluir valores numéricos para detectar cambios en H_eff y decay
+                h_eff_key = int(ranking_item["H_eff"] * 10)  # Precisión de 1 decimal
+                decay_key = int(ranking_item["dH_eff_dt"] * 10)  # Precisión de 1 decimal
+                explanation_key = f"exp_{explain_scenario}_{ranking_item['class']}_{oyente_type.replace(' ', '_')}_{h_eff_key}_{decay_key}"
                 
                 try:
                     with st.spinner("Generando explicación..."):
