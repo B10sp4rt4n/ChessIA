@@ -254,27 +254,39 @@ def generar_narrativa_posicion(
     Returns:
         Tuple[str, str]: (explicacion, fuente)
     """
-    # Clasificar estado según H_eff
-    if H_eff > 50:
+    # Clasificar estado según ratio H_eff/H (capacidad accesible vs total)
+    # Umbrales calibrados para ajedrez:
+    # - Posición inicial: H≈98, H_eff≈20, ratio≈20%
+    # - Medio juego: H≈50-70, H_eff≈10-15, ratio≈15-20%
+    # - Final: H≈20-40, H_eff≈5-10, ratio≈15-25%
+    ratio = (H_eff / H * 100) if H > 0 else 0
+    
+    if ratio >= 15:  # ≥15% de capacidad accesible: sistema saludable
         classification = "Alpha"
-    elif H_eff > 20:
+    elif ratio >= 8:  # 8-15% accesible: sistema funcional
         classification = "Beta"
-    else:
+    else:  # <8% accesible: sistema degradado
         classification = "Gamma"
     
-    # Calcular decay simulado (asumiendo degradación lineal)
-    decay_rate = (100 - H_eff) / max(turn, 1)
+    # Calcular tasa de degradación basada en el turno
+    # Si H_eff disminuye, decay > 0; si aumenta, decay < 0
+    if turn > 0:
+        # Estimación: en posición inicial H_eff≈20, asumimos degradación gradual
+        initial_h_eff = 20.0  # H_eff típico de posición inicial
+        decay_rate = (initial_h_eff - H_eff) / turn
+    else:
+        decay_rate = 0.0  # Posición inicial, sin degradación
     
     # Contar piezas
     white_pieces = len([p for p in board.piece_map().values() if p.color == chess.WHITE])
     black_pieces = len([p for p in board.piece_map().values() if p.color == chess.BLACK])
     total_pieces = white_pieces + black_pieces
     
-    # Crear escenario para explicación
+    # Crear escenario para explicación con métricas completas
     scenario = {
-        "name": f"Turno {turn} ({total_pieces} piezas)",
+        "name": f"Turno {turn}: {total_pieces} piezas ({white_pieces}♔ vs {black_pieces}♚)",
         "H_eff": H_eff,
-        "decay": decay_rate
+        "decay": max(decay_rate, 0.001)  # Evitar decay=0 para validación
     }
     
     try:
@@ -286,12 +298,18 @@ def generar_narrativa_posicion(
         return explicacion, fuente
     except Exception as e:
         logger.warning(f"Error generando narrativa: {e}")
-        # Fallback básico
+        # Fallback básico mejorado
+        estado_emoji = "✅" if classification == "Alpha" else "⚠️" if classification == "Beta" else "🚨"
         return (
-            f"📊 Turno {turn}\n"
-            f"Holgura efectiva: {H_eff:.1f}\n"
-            f"Estado: {classification}\n"
-            f"El sistema tiene {total_pieces} piezas activas ({white_pieces} blancas, {black_pieces} negras)."
+            f"{estado_emoji} **Análisis Estructural - Turno {turn}**\n\n"
+            f"**Clasificación:** {classification}\n"
+            f"**Piezas activas:** {total_pieces} ({white_pieces} blancas, {black_pieces} negras)\n\n"
+            f"**Métricas:**\n"
+            f"- Holgura total (H): {H:.1f}\n"
+            f"- Holgura efectiva (H_eff): {H_eff:.1f}\n"
+            f"- Ratio accesibilidad: {ratio:.1f}%\n"
+            f"- Tasa de cambio: {decay_rate:.2f}/turno\n\n"
+            f"**Interpretación:** El sistema tiene {ratio:.0f}% de su capacidad estructural accesible."
         ), "LOCAL_FALLBACK"
 
 

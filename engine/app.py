@@ -165,7 +165,7 @@ else:  # Comparador v4.2
 # ESCENARIO 1: CHESS DEMO
 if scenario == "🎮 Chess Demo":
     import random
-    from chess_demo import run_game_stepwise, render_board_svg, get_load_legend_html
+    from chess_demo import run_game_stepwise, render_board_svg, get_load_legend_html, generar_narrativa_posicion
     from rate_limiter import TimeoutError, validate_computational_cost
     import streamlit.components.v1 as components
     
@@ -334,6 +334,61 @@ Los conceptos demostrados son observables y educativos, pero **no representan el
             st.error("☠️ Jaque mate")
         if board.is_stalemate():
             st.warning("🤝 Empate (tablas)")
+    
+    # Narrativas Inteligentes
+    st.divider()
+    st.subheader("🤖 Análisis Narrativo de la Posición")
+    st.caption("Explicación automatizada del estado estructural actual")
+    
+    col_narrativa1, col_narrativa2 = st.columns([2, 1])
+    
+    with col_narrativa1:
+        oyente_chess = st.radio(
+            "Tipo de audiencia:",
+            ["técnico", "no técnico", "gerencial", "usuario final"],
+            horizontal=True,
+            key="chess_oyente"
+        )
+    
+    with col_narrativa2:
+        # Mostrar fuente de explicación
+        if st.session_state.get("openai_api_key") and st.session_state.openai_api_key != "sk-your-key-here":
+            st.info("🤖 Fuente: **IA**")
+        else:
+            st.warning("🔄 Fuente: **Local**")
+    
+    # Generar key única para forzar regeneración cuando cambian las métricas
+    h_key = int(H * 10)
+    h_eff_key = int(H_eff * 10)
+    narrative_key = f"chess_narrative_{move_count}_{h_key}_{h_eff_key}_{oyente_chess.replace(' ', '_')}"
+    
+    try:
+        with st.spinner("Generando análisis..."):
+            narrativa, fuente = generar_narrativa_posicion(
+                board=board,
+                H=H,
+                H_eff=H_eff,
+                turn=move_count,
+                oyente_type=oyente_chess
+            )
+        
+        # Badge de fuente
+        if fuente == "IA":
+            st.markdown("**📡 Análisis generado por IA (OpenAI GPT-4)**")
+        else:
+            st.markdown("**⚙️ Análisis generado por motor de reglas local**")
+        
+        # Mostrar narrativa
+        st.text_area(
+            "Análisis estructural de la posición:",
+            value=narrativa,
+            height=400,
+            key=narrative_key,
+            disabled=True
+        )
+    except Exception as e:
+        st.error(f"❌ Error generando análisis: {e}")
+        logger.error(f"Error en narrativa chess: {e}", exc_info=True)
     
     st.divider()
     st.subheader("📊 Resumen de Métricas")
