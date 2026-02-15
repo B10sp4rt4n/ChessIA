@@ -897,7 +897,7 @@ else:  # scenario == "📊 Comparador v4.2"
                     st.text_area(
                         "Narrativa estructural:",
                         value=explicacion,
-                        height=200,
+                        height=400,  # Aumentado de 200 a 400 para mostrar narrativas completas
                         key=explanation_key,
                         disabled=True  # Solo lectura para evitar edición accidental
                     )

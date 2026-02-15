@@ -110,7 +110,7 @@ def obtener_explicacion_ia(
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
-                max_tokens=600,  # Aumentado de 220 a 600 para permitir explicaciones completas
+                max_tokens=1200,  # Aumentado a 1200 para narrativas completas sin truncamiento
             )
             text = response.choices[0].message.content
         else:
