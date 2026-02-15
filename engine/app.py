@@ -4,6 +4,7 @@
 
 import streamlit as st
 import logging
+import os
 
 # Configurar logging
 logging.basicConfig(
@@ -70,6 +71,45 @@ st.set_page_config(
 # -----------------------------
 st.sidebar.title("🏗️ SHE Core v4.5")
 st.sidebar.caption("Structural Health Engine")
+
+st.sidebar.divider()
+
+# Configuración de OpenAI
+with st.sidebar.expander("⚙️ Configuración OpenAI", expanded=False):
+    st.caption("Para activar explicaciones con IA")
+    
+    # Obtener la API key actual del entorno o session_state
+    current_key = os.environ.get("OPENAI_API_KEY", "")
+    if "openai_api_key" not in st.session_state:
+        st.session_state.openai_api_key = current_key
+    
+    # Input para la API key
+    api_key_input = st.text_input(
+        "OpenAI API Key",
+        value=st.session_state.openai_api_key if st.session_state.openai_api_key != "sk-your-key-here" else "",
+        type="password",
+        help="Ingresa tu clave de OpenAI. Obtén una en platform.openai.com/api-keys",
+        placeholder="sk-proj-..."
+    )
+    
+    # Botón para guardar
+    if st.button("💾 Guardar API Key", use_container_width=True):
+        if api_key_input and api_key_input.strip():
+            st.session_state.openai_api_key = api_key_input.strip()
+            os.environ["OPENAI_API_KEY"] = api_key_input.strip()
+            st.success("✅ API Key guardada en sesión")
+            st.rerun()
+        else:
+            st.warning("⚠️ Ingresa una API key válida")
+    
+    # Mostrar estado actual
+    if st.session_state.openai_api_key and st.session_state.openai_api_key != "sk-your-key-here":
+        masked_key = st.session_state.openai_api_key[:7] + "..." + st.session_state.openai_api_key[-4:]
+        st.info(f"🔑 Configurada: `{masked_key}`")
+        st.caption("Las explicaciones usarán IA")
+    else:
+        st.warning("🔄 Modo Fallback Local")
+        st.caption("Las explicaciones usarán reglas locales")
 
 st.sidebar.divider()
 
