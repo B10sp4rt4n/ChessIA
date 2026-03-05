@@ -751,7 +751,152 @@ elif scenario == "🕸️ Demo Grafo":
         except Exception as e:
             st.error(f"❌ Error generando análisis: {e}")
             logger.error(f"Error en narrativa grafo: {e}", exc_info=True)
-        
+
+        # -----------------------------------------------
+        # GRÁFICOS POR AUDIENCIA
+        # -----------------------------------------------
+        st.divider()
+        st.subheader("📊 Visualizaciones por audiencia")
+        st.caption(f"Vista adaptada para: **{oyente_grafo}**")
+
+        # Datos comunes
+        node_names = [n.name for n in nodes.values()]
+        utilizations = [(n.load / n.capacity * 100) if n.capacity > 0 else 0 for n in nodes.values()]
+        slacks = [n.slack for n in nodes.values()]
+        degrees_list = [G.degree(n.name) for n in nodes.values()]
+        max_deg = max(degrees_list) if degrees_list and max(degrees_list) > 0 else 1
+        accessible_slack = [s * (d / max_deg) for s, d in zip(slacks, degrees_list)]
+        ratio_heff_h = (H_eff / H * 100) if H > 0 else 0
+        total_capacity = sum(n.capacity for n in nodes.values())
+        total_load = sum(n.load for n in nodes.values())
+
+        try:
+            if oyente_grafo == "técnico":
+                col_c1, col_c2 = st.columns(2)
+
+                with col_c1:
+                    fig, ax = plt.subplots(figsize=(6, max(3, len(node_names) * 0.6)))
+                    colors_bar = ['#7CFC00' if u < 50 else '#FFD700' if u < 75 else '#FF4444' for u in utilizations]
+                    bars = ax.barh(node_names, utilizations, color=colors_bar, edgecolor='black', linewidth=0.5)
+                    ax.axvline(50, color='orange', linestyle='--', linewidth=1.2, label='umbral moderado (50%)')
+                    ax.axvline(75, color='red', linestyle='--', linewidth=1.2, label='umbral crítico (75%)')
+                    ax.set_xlabel("Utilización (%)")
+                    ax.set_title("Utilización por nodo\n(carga / capacidad)", fontsize=11)
+                    ax.legend(fontsize=8)
+                    ax.set_xlim(0, 115)
+                    for bar, val in zip(bars, utilizations):
+                        ax.text(val + 1, bar.get_y() + bar.get_height() / 2, f'{val:.0f}%', va='center', fontsize=9)
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    plt.close(fig)
+                    st.caption("**> 75%** → nodo en riesgo. **> 50%** → monitoreo intensivo.")
+
+                with col_c2:
+                    fig, ax = plt.subplots(figsize=(6, max(3, len(node_names) * 0.6)))
+                    x = list(range(len(node_names)))
+                    w = 0.35
+                    ax.bar([i - w / 2 for i in x], slacks, w, label='Holgura total (H)', color='#4A90D9', alpha=0.85)
+                    ax.bar([i + w / 2 for i in x], accessible_slack, w, label='Holgura accesible (↑H_eff)', color='#27AE60', alpha=0.85)
+                    ax.set_xticks(x)
+                    ax.set_xticklabels(node_names, rotation=30, ha='right')
+                    ax.set_ylabel("Unidades de holgura")
+                    ax.set_title(f"Holgura total vs accesible\nRatio H_eff/H = {ratio_heff_h:.0f}%", fontsize=11)
+                    ax.legend(fontsize=8)
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    plt.close(fig)
+                    st.caption("Diferencia entre barras = holgura **atrapada** en nodos poco conectados (no redistribuible).")
+
+            elif oyente_grafo == "gerencial":
+                col_c1, col_c2 = st.columns(2)
+
+                with col_c1:
+                    green_c = sum(1 for u in utilizations if u < 50)
+                    yellow_c = sum(1 for u in utilizations if 50 <= u < 75)
+                    red_c = sum(1 for u in utilizations if u >= 75)
+                    fig, ax = plt.subplots(figsize=(5, 4))
+                    sizes_pie = [max(v, 0.001) for v in [green_c, yellow_c, red_c]]
+                    labels_pie = [f'Operativos\n({green_c})', f'En seguimiento\n({yellow_c})', f'En riesgo\n({red_c})']
+                    colors_pie = ['#27AE60', '#F39C12', '#E74C3C']
+                    ax.pie(sizes_pie, labels=labels_pie, colors=colors_pie, autopct='%1.0f%%',
+                           explode=[0, 0.05, 0.1], startangle=90, textprops={'fontsize': 10})
+                    ax.set_title("Distribución de nodos\npor nivel de riesgo operativo", fontsize=11, fontweight='bold')
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    plt.close(fig)
+                    st.caption(f"**{green_c}** operativos · **{yellow_c}** requieren atención · **{red_c}** en riesgo")
+
+                with col_c2:
+                    fig, ax = plt.subplots(figsize=(5, 4))
+                    categorias = ['Capacidad\ntotal', 'Carga\nactual', 'Reserva\ntotal (H)', 'Reserva\nredistribuible\n(H_eff)']
+                    valores = [total_capacity, total_load, H, H_eff]
+                    colores_bar = ['#2C3E50', '#E74C3C', '#F39C12', '#27AE60']
+                    bars = ax.bar(categorias, valores, color=colores_bar, edgecolor='white', linewidth=1.5)
+                    ax.set_ylabel("Unidades")
+                    ax.set_title(f"Balance del sistema\n{ratio_heff_h:.0f}% de reserva es redistribuible ante fallas", fontsize=10)
+                    for bar, val in zip(bars, valores):
+                        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.3, f'{val:.0f}',
+                                ha='center', fontsize=9, fontweight='bold')
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    plt.close(fig)
+                    st.caption("Verde = reserva real disponible para absorber picos o fallas de nodos.")
+
+            elif oyente_grafo == "no técnico":
+                fig, ax = plt.subplots(figsize=(8, max(3, len(node_names) * 0.75)))
+                colors_bar = ['#7CFC00' if u < 50 else '#FFD700' if u < 75 else '#FF4444' for u in utilizations]
+                labels_simple = ["✅ Bien" if u < 50 else "⚠️ Atención" if u < 75 else "🚨 Saturado" for u in utilizations]
+                bars = ax.barh(node_names, utilizations, color=colors_bar, edgecolor='white', linewidth=1)
+                ax.set_xlim(0, 125)
+                ax.axvline(100, color='black', linestyle='-', linewidth=1.5, alpha=0.3)
+                ax.set_xlabel("¿Qué tan ocupado está? (0 = vacío · 100 = lleno al máximo)")
+                ax.set_title("Estado de cada parte del sistema", fontsize=13, fontweight='bold')
+                for bar, val, lbl in zip(bars, utilizations, labels_simple):
+                    ax.text(val + 1, bar.get_y() + bar.get_height() / 2, f'{lbl} ({val:.0f}%)', va='center', fontsize=10)
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close(fig)
+
+                salud = max(0, min(100, ratio_heff_h))
+                color_salud = "🟢" if salud > 50 else "🟡" if salud > 20 else "🔴"
+                st.markdown(f"### {color_salud} Salud global del sistema: **{salud:.0f}%**")
+                st.progress(int(salud))
+                if salud > 50:
+                    st.success("El sistema tiene espacio libre suficiente para manejar problemas imprevistos.")
+                elif salud > 20:
+                    st.warning("El sistema funciona, pero tiene poco margen. Conviene revisarlo pronto.")
+                else:
+                    st.error("El sistema está muy cargado. Puede fallar si ocurre un problema inesperado.")
+
+            else:  # usuario final
+                salud = max(0, min(100, ratio_heff_h))
+                st.markdown("### ¿Cómo está el sistema ahora mismo?")
+                if salud > 50:
+                    st.success(f"## ✅ TODO BIEN — Salud: {salud:.0f}%")
+                    st.markdown("El sistema funciona con normalidad. No hay nada de qué preocuparse.")
+                elif salud > 20:
+                    st.warning(f"## ⚠️ ATENCIÓN — Salud: {salud:.0f}%")
+                    st.markdown("El sistema funciona, pero está bajo presión. Estate atento a posibles alertas.")
+                else:
+                    st.error(f"## 🚨 ALERTA — Salud: {salud:.0f}%")
+                    st.markdown("El sistema está en situación delicada. Pueden ocurrir interrupciones pronto.")
+                st.progress(int(salud))
+                st.caption(f"Salud = {salud:.0f}% de capacidad libre disponible para emergencias")
+
+                st.markdown("---")
+                st.markdown("**¿Cómo le va a cada parte?**")
+                for name, util in zip(node_names, utilizations):
+                    if util < 50:
+                        st.markdown(f"✅ **{name}** — Bien ({util:.0f}% ocupado)")
+                    elif util < 75:
+                        st.markdown(f"⚠️ **{name}** — Necesita atención ({util:.0f}% ocupado)")
+                    else:
+                        st.markdown(f"🚨 **{name}** — Saturado ({util:.0f}% ocupado)")
+
+        except Exception as e:
+            st.error(f"Error generando visualizaciones: {e}")
+            logger.error(f"Error en gráficos por audiencia: {e}", exc_info=True)
+
     except Exception as e:
         st.error(f"Error: {e}")
         logger.error(f"Error en demo grafo: {e}", exc_info=True)
