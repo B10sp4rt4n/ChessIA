@@ -117,7 +117,8 @@ scenario = st.sidebar.radio(
     "Selecciona un escenario:",
     options=[
         "🎮 Chess Demo",
-        "🕸️ Demo Grafo", 
+        "🕸️ Demo Grafo",
+        "🌉 Demo Puentes",
         "📊 Comparador v4.2"
     ],
     index=0,
@@ -146,6 +147,18 @@ elif scenario == "🕸️ Demo Grafo":
     - Estados: VIVO/ZOMBI/COLAPSADO
     - Métricas: H, H_eff, S
     - Topología de red
+    """)
+elif scenario == "🌉 Demo Puentes":
+    st.sidebar.info("""
+    **Demo Puentes**
+
+    Análisis estructural de 3 puentes reales con
+    métricas SHE de degradación y capacidad portante.
+
+    - Mapeo: H_eff = reserva portante
+    - Mapeo: decay = tasa de degradación anual
+    - Clasificación Alpha/Beta/Gamma
+    - Visualizaciones por audiencia
     """)
 else:  # Comparador v4.2
     st.sidebar.info("""
@@ -902,8 +915,291 @@ elif scenario == "🕸️ Demo Grafo":
         logger.error(f"Error en demo grafo: {e}", exc_info=True)
 
 
-# ESCENARIO 3: COMPARADOR V4.2
-else:  # scenario == "📊 Comparador v4.2"
+# ESCENARIO 3: DEMO PUENTES
+elif scenario == "🌉 Demo Puentes":
+    import math
+    import matplotlib.pyplot as plt
+
+    st.title("Structural Health Engine · Demo Puentes 🌉")
+    st.caption("Análisis estructural de infraestructura vial — capacidad portante y degradación")
+
+    st.info("""
+    **¿Qué mide este demo?**
+    - **Capacidad portante disponible (H_eff):** reserva estructural por encima de la carga nominal (0–100)
+    - **Tasa de degradación (decay):** pérdida de capacidad por año por fatiga, corrosión y tráfico acumulado
+    - **Clasificación Alpha/Beta/Gamma:** estado de salud del puente según ambas métricas
+    """)
+
+    # --- Datos de los 3 puentes ---
+    puentes = [
+        {
+            "nombre": "Puente Moderno (2015)",
+            "material": "Acero-concreto de alta resistencia",
+            "año": 2015,
+            "h_eff": 78.0,
+            "decay": 0.7,
+            "descripcion": "Diseño sísmico actualizado, mantenimiento preventivo anual, sensores IoT embebidos.",
+        },
+        {
+            "nombre": "Puente Mixto (1985 / ref. 2005)",
+            "material": "Concreto reforzado con vigas de acero",
+            "año": 1985,
+            "h_eff": 44.0,
+            "decay": 2.6,
+            "descripcion": "Refuerzo parcial en 2005. Algunas vigas secundarias con corrosión visible. Inspección semestral activa.",
+        },
+        {
+            "nombre": "Puente Histórico (1962)",
+            "material": "Concreto armado sin refuerzo posterior",
+            "año": 1962,
+            "h_eff": 19.0,
+            "decay": 5.8,
+            "descripcion": "Sin intervenciones mayores en 60 años. Carbonatación avanzada. Carga restringida a vehículos livianos.",
+        },
+    ]
+
+    def clasificar(h_eff, decay):
+        if h_eff >= 60 and decay <= 1.5:
+            return "Alpha"
+        elif h_eff >= 30:
+            return "Beta"
+        else:
+            return "Gamma"
+
+    CLASS_COLOR = {"Alpha": "#27AE60", "Beta": "#F39C12", "Gamma": "#E74C3C"}
+    CLASS_EMOJI = {"Alpha": "🟢", "Beta": "🟡", "Gamma": "🔴"}
+    CLASS_LABEL = {
+        "Alpha": "✅ Operativo — capacidad portante alta, degradación controlada",
+        "Beta": "⚠️ Vigilancia activa — degradación moderada, requiere plan de refuerzo",
+        "Gamma": "🚨 Intervención urgente — capacidad crítica, riesgo de falla estructural",
+    }
+
+    for p in puentes:
+        cls = clasificar(p["h_eff"], p["decay"])
+        p["clase"] = cls
+
+    # -----------------------------------------------
+    # PANEL COMPARATIVO
+    # -----------------------------------------------
+    st.divider()
+    st.subheader("📊 Comparativa de los 3 puentes")
+
+    col_a, col_b, col_c = st.columns(3)
+    for col, p in zip([col_a, col_b, col_c], puentes):
+        cls = p["clase"]
+        with col:
+            st.markdown(f"#### {CLASS_EMOJI[cls]} {p['nombre']}")
+            st.caption(p["material"])
+            st.caption(f"Año de construcción: {p['año']}")
+            st.metric("Capacidad portante disponible", f"{p['h_eff']:.0f} / 100")
+            st.metric("Degradación anual", f"{p['decay']:.1f} pts/año")
+            st.markdown(
+                f"<div style='background:{CLASS_COLOR[cls]};color:white;padding:8px 12px;"
+                f"border-radius:6px;font-weight:bold;text-align:center'>{cls}</div>",
+                unsafe_allow_html=True,
+            )
+            st.caption(CLASS_LABEL[cls])
+            with st.expander("Ver descripción técnica"):
+                st.write(p["descripcion"])
+
+    # -----------------------------------------------
+    # GRÁFICO 1 — Capacidad vs Degradación (scatter)
+    # -----------------------------------------------
+    st.divider()
+    st.subheader("📈 Capacidad disponible vs Tasa de degradación")
+
+    try:
+        fig, ax = plt.subplots(figsize=(8, 5))
+
+        # Zonas de clasificación de fondo
+        ax.axhspan(0, 1.5, xmin=0.6, alpha=0.08, color='green', label='_nolegend_')
+        ax.axhspan(1.5, 4, alpha=0.05, color='orange', label='_nolegend_')
+        ax.axhspan(4, 8, alpha=0.07, color='red', label='_nolegend_')
+
+        for p in puentes:
+            color = CLASS_COLOR[p["clase"]]
+            ax.scatter(p["h_eff"], p["decay"], s=300, color=color, zorder=5,
+                       edgecolors='black', linewidths=1.5)
+            ax.annotate(
+                p["nombre"].split("(")[0].strip(),
+                (p["h_eff"], p["decay"]),
+                textcoords="offset points", xytext=(10, 6),
+                fontsize=9, fontweight='bold', color=color
+            )
+
+        # Líneas de umbral
+        ax.axvline(60, color='#27AE60', linestyle='--', linewidth=1.2, alpha=0.7, label='Umbral Alpha H_eff=60')
+        ax.axvline(30, color='#F39C12', linestyle='--', linewidth=1.2, alpha=0.7, label='Umbral Beta H_eff=30')
+        ax.axhline(1.5, color='#27AE60', linestyle=':', linewidth=1.2, alpha=0.7, label='Decay máx. Alpha=1.5')
+
+        ax.set_xlabel("Capacidad portante disponible (H_eff)", fontsize=11)
+        ax.set_ylabel("Tasa de degradación anual (decay)", fontsize=11)
+        ax.set_title("Posición estructural de cada puente", fontsize=13, fontweight='bold')
+        ax.set_xlim(0, 100)
+        ax.set_ylim(0, 8)
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+        st.caption("Ideal: esquina inferior derecha (alta capacidad, baja degradación). Peligro: esquina superior izquierda.")
+    except Exception as e:
+        st.error(f"Error generando scatter: {e}")
+
+    # -----------------------------------------------
+    # GRÁFICO 2 — Proyección de degradación en el tiempo
+    # -----------------------------------------------
+    st.divider()
+    st.subheader("📉 Proyección de vida útil restante")
+
+    try:
+        años_proyeccion = st.slider("Años a proyectar", min_value=5, max_value=50, value=20, step=5,
+                                    key="puentes_años_proyeccion")
+        fig, ax = plt.subplots(figsize=(9, 5))
+        x = list(range(años_proyeccion + 1))
+
+        for p in puentes:
+            color = CLASS_COLOR[p["clase"]]
+            y = [max(0, p["h_eff"] - p["decay"] * t) for t in x]
+            ax.plot(x, y, color=color, linewidth=2.5, label=p["nombre"].split("(")[0].strip(), marker='o',
+                    markersize=3)
+            # Marcar cuando llega a 0
+            años_colapso = p["h_eff"] / p["decay"]
+            if años_colapso <= años_proyeccion:
+                ax.axvline(años_colapso, color=color, linestyle=':', linewidth=1, alpha=0.6)
+                ax.text(años_colapso + 0.3, 2, f'⚠️ {años_colapso:.0f} años', color=color, fontsize=8)
+
+        ax.axhline(30, color='#F39C12', linestyle='--', linewidth=1, alpha=0.6, label='Umbral Beta (30)')
+        ax.axhline(10, color='#E74C3C', linestyle='--', linewidth=1, alpha=0.6, label='Umbral crítico (10)')
+        ax.fill_between(x, 0, 10, alpha=0.05, color='red')
+        ax.set_xlabel("Años desde hoy", fontsize=11)
+        ax.set_ylabel("Capacidad portante disponible (H_eff)", fontsize=11)
+        ax.set_title("¿Cuánto tiempo le queda a cada puente sin intervención?", fontsize=12, fontweight='bold')
+        ax.set_ylim(0, 100)
+        ax.legend(fontsize=9)
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+
+        # Tabla resumen de vida útil
+        st.markdown("**Tiempo estimado hasta colapso sin intervención:**")
+        for p in puentes:
+            años_restantes = p["h_eff"] / p["decay"]
+            urgencia = "🚨 urgente" if años_restantes < 5 else "⚠️ próximos años" if años_restantes < 15 else "✅ largo plazo"
+            st.markdown(
+                f"- **{p['nombre'].split('(')[0].strip()}**: {años_restantes:.1f} años "
+                f"({urgencia})"
+            )
+    except Exception as e:
+        st.error(f"Error generando proyección: {e}")
+
+    # -----------------------------------------------
+    # GRÁFICO 3 — Vista por audiencia
+    # -----------------------------------------------
+    st.divider()
+    st.subheader("🎯 Vista por audiencia")
+
+    oyente_puentes = st.radio(
+        "Tipo de audiencia:",
+        ["técnico", "gerencial", "no técnico", "usuario final"],
+        horizontal=True,
+        key="puentes_oyente"
+    )
+
+    try:
+        if oyente_puentes == "técnico":
+            fig, ax = plt.subplots(figsize=(8, 4))
+            nombres = [p["nombre"].split("(")[0].strip() for p in puentes]
+            h_vals = [p["h_eff"] for p in puentes]
+            d_vals = [p["decay"] for p in puentes]
+            ratios = [d / h * 100 for h, d in zip(h_vals, d_vals)]
+            colores = [CLASS_COLOR[p["clase"]] for p in puentes]
+            bars = ax.bar(nombres, ratios, color=colores, edgecolor='black', linewidth=0.8)
+            ax.set_ylabel("Ratio degradación / capacidad (%)")
+            ax.set_title("Ratio dH/dt ÷ H_eff — Velocidad de consumo de reserva portante", fontsize=11)
+            for bar, val in zip(bars, ratios):
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1,
+                        f'{val:.1f}%', ha='center', fontsize=10, fontweight='bold')
+            ax.grid(axis='y', alpha=0.3)
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close(fig)
+            st.caption("Ratio > 10% = degradación acelerada. Ratio > 20% = intervención inmediata.")
+
+        elif oyente_puentes == "gerencial":
+            fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+            nombres = [p["nombre"].split("(")[0].strip() for p in puentes]
+            colores = [CLASS_COLOR[p["clase"]] for p in puentes]
+
+            # Izq: costo de intervención relativo (inverso de h_eff)
+            costo_relativo = [max(0, 100 - p["h_eff"]) for p in puentes]
+            bars = axes[0].bar(nombres, costo_relativo, color=colores, edgecolor='black', linewidth=0.8)
+            axes[0].set_ylabel("Índice de urgencia de inversión")
+            axes[0].set_title("Urgencia de inversión\n(mayor = más costoso diferir)", fontsize=10)
+            for bar, val in zip(bars, costo_relativo):
+                axes[0].text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
+                             f'{val:.0f}', ha='center', fontsize=10, fontweight='bold')
+
+            # Der: riesgo operativo (decay × (100 - h_eff) / 100)
+            riesgo = [p["decay"] * (100 - p["h_eff"]) / 100 for p in puentes]
+            bars2 = axes[1].bar(nombres, riesgo, color=colores, edgecolor='black', linewidth=0.8)
+            axes[1].set_ylabel("Índice de riesgo operativo")
+            axes[1].set_title("Riesgo operativo compuesto\n(degradación × exposición)", fontsize=10)
+            for bar, val in zip(bars2, riesgo):
+                axes[1].text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.05,
+                             f'{val:.2f}', ha='center', fontsize=10, fontweight='bold')
+
+            for ax in axes:
+                ax.grid(axis='y', alpha=0.3)
+                ax.tick_params(axis='x', labelsize=9)
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close(fig)
+            st.caption("Mayor riesgo operativo = mayor exposición a pérdidas por falla no planificada.")
+
+        elif oyente_puentes == "no técnico":
+            fig, ax = plt.subplots(figsize=(7, 4))
+            nombres = [p["nombre"].split("(")[0].strip() for p in puentes]
+            salud = [p["h_eff"] for p in puentes]
+            colores = [CLASS_COLOR[p["clase"]] for p in puentes]
+            labels_texto = [
+                "✅ En buen estado" if p["clase"] == "Alpha"
+                else "⚠️ Necesita atención" if p["clase"] == "Beta"
+                else "🚨 Requiere reparación urgente"
+                for p in puentes
+            ]
+            bars = ax.barh(nombres, salud, color=colores, edgecolor='white', linewidth=1.5)
+            ax.set_xlim(0, 120)
+            ax.axvline(100, color='black', linestyle='-', linewidth=1, alpha=0.2)
+            ax.set_xlabel("Salud del puente (0 = colapso · 100 = nuevo)")
+            ax.set_title("¿En qué estado está cada puente?", fontsize=13, fontweight='bold')
+            for bar, val, lbl in zip(bars, salud, labels_texto):
+                ax.text(val + 1, bar.get_y() + bar.get_height() / 2,
+                        f'{lbl}  ({val:.0f}/100)', va='center', fontsize=9)
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close(fig)
+
+        else:  # usuario final
+            st.markdown("### ¿Es seguro usar estos puentes?")
+            for p in puentes:
+                cls = p["clase"]
+                if cls == "Alpha":
+                    st.success(f"✅ **{p['nombre'].split('(')[0].strip()}** — Seguro. Bien mantenido.")
+                elif cls == "Beta":
+                    st.warning(f"⚠️ **{p['nombre'].split('(')[0].strip()}** — Seguro hoy, pero necesita mantenimiento pronto.")
+                else:
+                    st.error(f"🚨 **{p['nombre'].split('(')[0].strip()}** — Restricciones activas. No apto para carga pesada.")
+                st.progress(int(min(100, p["h_eff"])))
+
+    except Exception as e:
+        st.error(f"Error generando vista por audiencia: {e}")
+        logger.error(f"Error en Demo Puentes: {e}", exc_info=True)
+
+
+# ESCENARIO 4: COMPARADOR V4.2
+elif scenario == "📊 Comparador v4.2":
     from compare_v42 import (
         Scenario,
         compare,
