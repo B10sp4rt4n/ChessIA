@@ -21,6 +21,7 @@ autorizacion expresa.
 	- `demo.py` (Streamlit) - modo grafo
 	- `mcl_chess.py` - ajedrez estructural (experimental)
 	- `compare_v42.py` - comparador v4.2
+	- `compare_v42_ui_bridge.py` - puente UI → comparador
 
 ## Correr la web (estatica)
 Abre `she-core/web/index.html` en el navegador, o sirve el folder con un servidor estatico:
@@ -45,12 +46,42 @@ pip install -r requirements-dev.txt
 - `streamlit==1.54.0` - Framework de demos interactivos
 - `networkx==3.6.1` - Análisis de grafos
 - `python-chess==1.999` - Motor de ajedrez
+- `openai==1.12.0` - Explicaciones inteligentes con IA
 - `pytest==9.0.2` - Testing framework
 - `pytest-cov==7.0.0` - Cobertura de tests
 
 **Nota:** `requirements.txt` usa versiones exactas (lockfile) para reproducibilidad en producción. `requirements-dev.txt` usa rangos compatibles para desarrollo y CI/CD.
 
+## Configuración de OpenAI (Opcional)
+
+El sistema incluye explicaciones inteligentes generadas por IA. Para activar esta funcionalidad:
+
+### 1. Crear archivo de configuración
+```bash
+cp .env.example .env
+```
+
+### 2. Agregar tu API key de OpenAI
+Edita `.env` y reemplaza `sk-your-key-here` con tu clave real:
+```bash
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxx
+```
+
+### 3. Obtener API key
+Si no tienes una, obtén tu clave en [platform.openai.com](https://platform.openai.com/api-keys)
+
+### Modo Fallback (sin OpenAI)
+Si no configuras la API key, el sistema funciona con explicaciones basadas en reglas locales. Verás el indicador `LOCAL_FALLBACK` en lugar de `IA` en las explicaciones.
+
+**⚠️ Importante:** El archivo `.env` está en `.gitignore` para proteger tu API key. Nunca lo subas al repositorio.
+
 ## Correr demos de Python
+
+### Método recomendado (con variables de entorno)
+```bash
+./run_app.sh
+```
+Este script carga automáticamente las variables de entorno desde `.env` antes de iniciar la aplicación.
 
 ### Demo Grafo (Streamlit)
 ```bash
@@ -69,9 +100,41 @@ EXPERIMENTAL: Análisis estructural de partidas de ajedrez con métricas holíst
 ### Comparador v4.2
 ```bash
 cd engine
-streamlit run compare_v42.py
+streamlit run compare_v42_app.py
 ```
 Compara escenarios estructurales y clasifica en Alpha/Beta/Gamma según H_eff y degradación.
+
+### API de comparación (motor)
+```python
+from compare_v42 import Scenario, compare_with_thresholds
+
+scenarios = [
+	Scenario("Escenario A", 72.4, 0.8),
+	Scenario("Escenario B", 51.6, 2.1),
+	Scenario("Escenario C", 28.9, 4.5),
+]
+
+thresholds = {
+	"alpha_h_min": 60.0,
+	"alpha_decay_max": 1.0,
+	"beta_h_min": 30.0,
+}
+
+ranking = compare_with_thresholds(scenarios, thresholds, steps=10)
+```
+
+### API de integración para UI
+```python
+from compare_v42_ui_bridge import compare_from_ui
+
+ranking = compare_from_ui(
+	scenarios=scenarios,
+	alpha_h=60.0,
+	alpha_decay=1.0,
+	beta_h=30.0,
+	sim_steps=10,
+)
+```
 
 ### Chess Demo (Visualizador)
 ```bash
@@ -105,6 +168,7 @@ pytest --cov=. --cov-report=html
 
 **Test Summary (149 tests, 100% passing):**
 - test_compare_v42.py: 23 tests (Comparador v4.2)
+- test_compare_v42_ui_bridge.py: 4 tests (UI bridge)
 - test_mcl_chess.py: 21 tests (Chess core)
 - test_mcl_chess_coverage.py: 27 tests (Chess coverage boost)
 - test_demo.py: 29 tests (Graph mode)

@@ -6,6 +6,8 @@ from compare_v42 import (
     Scenario,
     classify,
     compare,
+    compare_with_thresholds,
+    validate_thresholds,
     ALPHA_H_EFF_MIN,
     ALPHA_DECAY_MAX,
     BETA_H_EFF_MIN
@@ -43,12 +45,37 @@ class TestScenario:
         assert values[1] == 2.0
         assert values[2] == 0.0  # No debe ser negativo
     
-    def test_scenario_simulate_no_decay(self):
-        """Verificar simulación sin degradación."""
-        s = Scenario("Estable", 50.0, 0.0)
+    def test_scenario_simulate_low_decay(self):
+        """Verificar simulación con degradación baja pero positiva."""
+        s = Scenario("Estable", 50.0, 0.1)
         values = s.simulate(steps=5)
-        
-        assert all(v == 50.0 for v in values)
+
+        assert values[0] == 50.0
+        assert values[-1] < values[0]
+
+    def test_scenario_invalid_zero_values(self):
+        """H_eff_init y decay deben ser estrictamente positivos."""
+        with pytest.raises(ValueError, match="H_eff_init debe ser > 0"):
+            Scenario("Inválido H", 0.0, 1.0)
+
+        with pytest.raises(ValueError, match="decay debe ser > 0"):
+            Scenario("Inválido decay", 10.0, 0.0)
+
+    def test_scenario_invalid_negative_values(self):
+        """Verificar rechazo de valores negativos."""
+        with pytest.raises(ValueError):
+            Scenario("Inválido H", -1.0, 1.0)
+
+        with pytest.raises(ValueError):
+            Scenario("Inválido decay", 10.0, -0.5)
+
+    def test_scenario_invalid_name(self):
+        """Verificar rechazo de nombre vacío o whitespace."""
+        with pytest.raises(ValueError):
+            Scenario("", 10.0, 1.0)
+
+        with pytest.raises(ValueError):
+            Scenario("   ", 10.0, 1.0)
     
     def test_scenario_simulate_default_steps(self):
         """Verificar que el default de steps=10 funciona."""
@@ -163,6 +190,14 @@ class TestCompare:
         assert result["name"] == "Test"
         assert result["H_eff"] == 60.0
         assert result["dH_eff_dt"] > 0  # Debe haber degradación calculada
+
+    def test_compare_with_steps_uses_final_h_eff(self):
+        """Con steps > 1, H_eff reportado debe ser el valor final simulado."""
+        scenarios = [Scenario("Test", 10.0, 2.0)]
+        ranking = compare(scenarios, steps=3)
+
+        assert ranking[0]["H_eff"] == 6.0
+        assert ranking[0]["dH_eff_dt"] == 2.0
     
     def test_compare_classification_integration(self):
         """Verificar que compare usa classify correctamente."""
@@ -202,6 +237,71 @@ class TestCompare:
         # Con umbrales personalizados (alpha_h_min=50)
         ranking_custom = compare(scenarios, alpha_h_min=50.0, alpha_decay_max=1.0)
         assert ranking_custom[0]["class"] == "Alpha"  # 55 > 50
+
+    def test_compare_invalid_steps(self):
+        """Verificar validación estricta de steps en compare."""
+        scenarios = [Scenario("Test", 55.0, 0.5)]
+
+        with pytest.raises(ValueError, match="steps fuera de rango"):
+            compare(scenarios, steps=0)
+
+        with pytest.raises(ValueError, match="steps fuera de rango"):
+            compare(scenarios, steps=1001)
+
+    def test_compare_invalid_input_types(self):
+        """Verificar errores descriptivos con entradas inválidas."""
+        with pytest.raises(ValueError, match="scenarios debe ser lista"):
+            compare("no-list")
+
+        with pytest.raises(ValueError, match="Elemento debe ser Scenario"):
+            compare(["x"])
+
+
+class TestThresholdsAPI:
+    """Tests para API basada en objeto thresholds."""
+
+    def test_validate_thresholds_ok(self):
+        thresholds = {
+            "alpha_h_min": 60.0,
+            "alpha_decay_max": 1.0,
+            "beta_h_min": 30.0,
+        }
+        validated = validate_thresholds(thresholds)
+
+        assert validated["alpha_h_min"] == 60.0
+        assert validated["alpha_decay_max"] == 1.0
+        assert validated["beta_h_min"] == 30.0
+
+    def test_validate_thresholds_missing_key(self):
+        with pytest.raises(ValueError, match="Faltan claves"):
+            validate_thresholds({"alpha_h_min": 60.0, "beta_h_min": 30.0})
+
+    def test_validate_thresholds_invalid_relation(self):
+        with pytest.raises(ValueError, match="alpha_h_min debe ser mayor"):
+            validate_thresholds({
+                "alpha_h_min": 20.0,
+                "alpha_decay_max": 1.0,
+                "beta_h_min": 30.0,
+            })
+
+    def test_compare_with_thresholds(self):
+        scenarios = [
+            Scenario("Escenario A", 72.4, 0.8),
+            Scenario("Escenario B", 51.6, 2.1),
+            Scenario("Escenario C", 28.9, 4.5),
+        ]
+        thresholds = {
+            "alpha_h_min": 60.0,
+            "alpha_decay_max": 1.0,
+            "beta_h_min": 30.0,
+        }
+
+        ranking = compare_with_thresholds(scenarios, thresholds, steps=1)
+        assert len(ranking) == 3
+        assert ranking[0]["name"] == "Escenario A"
+        assert ranking[0]["class"] == "Alpha"
+        assert ranking[1]["class"] == "Beta"
+        assert ranking[2]["class"] == "Gamma"
 
 
 class TestConstants:

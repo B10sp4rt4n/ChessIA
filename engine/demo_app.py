@@ -5,6 +5,7 @@ import streamlit as st
 import networkx as nx
 import random
 import logging
+from typing import Optional
 from demo import (
     build_graph,
     compute_metrics,
@@ -19,6 +20,52 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def get_cached_cost_validation(
+    cache_key: str,
+    *,
+    max_moves: int,
+    max_nodes: Optional[int] = None,
+    warn_threshold: float = 0.7,
+    force_refresh: bool = False
+) -> dict:
+    """Obtiene validación de costo con caché en session_state."""
+    cache = st.session_state.get(cache_key)
+    cache_params = (max_moves, max_nodes, warn_threshold)
+
+    if (
+        force_refresh
+        or cache is None
+        or cache.get("params") != cache_params
+    ):
+        result = validate_computational_cost(
+            max_moves=max_moves,
+            max_nodes=max_nodes,
+            warn_threshold=warn_threshold
+        )
+        st.session_state[cache_key] = {
+            "params": cache_params,
+            "result": result
+        }
+        return result
+
+    return cache["result"]
+
+
+def get_cached_graph_metrics(G, nodes):
+    """Calcula métricas solo cuando cambia el sistema generado."""
+    cache = st.session_state.get("demo_graph_metrics_cache")
+    if cache is not None and cache.get("graph_ref") is G and cache.get("nodes_ref") is nodes:
+        return cache["metrics"]
+
+    metrics = compute_metrics(G, nodes)
+    st.session_state["demo_graph_metrics_cache"] = {
+        "graph_ref": G,
+        "nodes_ref": nodes,
+        "metrics": metrics
+    }
+    return metrics
 
 st.set_page_config(page_title="SHE Demo - Modo Grafo", layout="wide")
 
@@ -43,9 +90,15 @@ st.warning(
 # -----------------------------
 st.sidebar.header("Parámetros")
 num_nodes = st.sidebar.slider("Número de nodos", 3, 20, 6)
+generate_clicked = st.sidebar.button("🎲 Generar sistema", type="primary")
 
 # Validar costo computacional
-cost_validation = validate_computational_cost(max_moves=100, max_nodes=num_nodes)
+cost_validation = get_cached_cost_validation(
+    "demo_app_cost_validation",
+    max_moves=100,
+    max_nodes=num_nodes,
+    force_refresh=generate_clicked
+)
 if cost_validation['warning']:
     if cost_validation['allowed']:
         st.sidebar.warning(cost_validation['warning'])
@@ -56,7 +109,7 @@ if cost_validation['warning']:
 st.sidebar.divider()
 st.sidebar.header("Acciones")
 
-if st.sidebar.button("🎲 Generar sistema", type="primary"):
+if generate_clicked:
     try:
         # Crear nuevo RNG para cada generación manual
         new_rng = random.Random()
@@ -97,7 +150,7 @@ except Exception as e:
 st.subheader("📊 Métricas Estructurales")
 
 try:
-    H, H_eff, S = compute_metrics(G, nodes)
+    H, H_eff, S = get_cached_graph_metrics(G, nodes)
 
     col1, col2, col3, col4 = st.columns(4)
     

@@ -25,6 +25,9 @@ pytest -v
 # Solo test_demo.py
 pytest test_demo.py -v
 
+# Comparador v4.2 + puente UI
+pytest test_compare_v42.py test_compare_v42_ui_bridge.py -v
+
 # Solo test de una clase
 pytest test_compare_v42.py::TestClassify -v
 
@@ -105,6 +108,16 @@ ptw -- -v
 
 #### Integration (1 test)
 - Flujo completo: creación → simulación → clasificación
+
+---
+
+### test_compare_v42_ui_bridge.py (4 tests)
+
+#### TestUIBridge (4 tests)
+- Mapeo de `alpha_h`/`alpha_decay`/`beta_h` → objeto `thresholds`
+- Propagación de `sim_steps` al motor (`H_eff` final)
+- Propagación de umbrales a la clase final (Alpha/Beta/Gamma)
+- Validación de error para `sim_steps` fuera de rango
 
 ---
 

@@ -4,11 +4,12 @@
 import streamlit as st
 from compare_v42 import (
     Scenario,
-    compare,
     ALPHA_H_EFF_MIN,
     ALPHA_DECAY_MAX,
     BETA_H_EFF_MIN
 )
+from compare_v42_ui_bridge import compare_from_ui
+from explanations import obtener_explicacion_con_fuente
 import logging
 
 # Configurar logging
@@ -97,6 +98,45 @@ with col3:
     c_h_eff = st.number_input("H_eff inicial C", value=28.9, step=1.0, key="c_h")
     c_decay = st.number_input("Decay C", value=4.5, step=0.1, key="c_d")
 
+st.divider()
+st.subheader("🌐 Escenario D — Demo Servicios Web")
+st.caption(
+    "Escenario orientado a audiencia web/académica. "
+    "'Capacidad disponible' equivale a H_eff; "
+    "'Degradación por ciclo de carga' equivale a decay."
+)
+
+col_d1, col_d2, col_d3 = st.columns([2, 2, 2])
+with col_d1:
+    d_name = st.text_input(
+        "Nombre del sistema",
+        value="Portal Inscripciones DGAE (pico enero)",
+        key="d_name",
+        help="Nombre del servicio o sistema web a analizar"
+    )
+with col_d2:
+    d_h_eff = st.number_input(
+        "Capacidad disponible del sistema (0–100)",
+        value=22.0,
+        min_value=0.1,
+        max_value=100.0,
+        step=1.0,
+        key="d_h",
+        help="Margen libre antes de saturación: CPU idle %, ms libres antes de timeout, requests/seg absorbibles"
+    )
+with col_d3:
+    d_decay = st.number_input(
+        "Degradación por ciclo de carga",
+        value=6.1,
+        min_value=0.1,
+        max_value=20.0,
+        step=0.1,
+        key="d_d",
+        help="Cuánto se deteriora la respuesta por cada ciclo de carga adicional (ej. cada 100 usuarios concurrentes)"
+    )
+
+use_scenario_d = st.checkbox("Incluir Escenario D en la comparación", value=True)
+
 # -----------------------------
 # Escenarios personalizados
 # -----------------------------
@@ -133,6 +173,13 @@ if st.button("🔍 Comparar Escenarios", type="primary"):
             Scenario("Escenario B", b_h_eff, b_decay),
             Scenario("Escenario C", c_h_eff, c_decay),
         ]
+
+        # Agregar Escenario D si está habilitado
+        if use_scenario_d:
+            try:
+                scenarios.append(Scenario(d_name, d_h_eff, d_decay))
+            except Exception as e:
+                st.warning(f"Error en Escenario D ({d_name}): {e}")
         
         # Agregar personalizados
         for name, h_eff, decay in custom_scenarios:
@@ -142,7 +189,13 @@ if st.button("🔍 Comparar Escenarios", type="primary"):
                 st.warning(f"Error en {name}: {e}")
         
         # Ejecutar comparación
-        ranking = compare(scenarios, alpha_h, alpha_decay, beta_h)
+        ranking = compare_from_ui(
+            scenarios=scenarios,
+            alpha_h=alpha_h,
+            alpha_decay=alpha_decay,
+            beta_h=beta_h,
+            sim_steps=sim_steps,
+        )
         
         st.session_state['ranking'] = ranking
         st.session_state['scenarios'] = scenarios
@@ -196,6 +249,7 @@ if 'ranking' in st.session_state:
     
     if selected_scenario in scenarios_dict:
         scenario = scenarios_dict[selected_scenario]
+        ranking_item = next((r for r in ranking if r["name"] == selected_scenario), None)
         sim_steps_display = st.session_state.get('sim_steps', 10)
         
         try:
@@ -224,6 +278,44 @@ if 'ranking' in st.session_state:
         except Exception as e:
             st.error(f"Error simulando {selected_scenario}: {e}")
             logger.error(f"Error en simulación: {e}", exc_info=True)
+
+        if ranking_item is not None:
+            st.divider()
+            st.subheader("🧠 Explicación del escenario")
+
+            oyente_type = st.radio(
+                "Selecciona el tipo de oyente:",
+                ["técnico", "no técnico", "gerencial", "usuario final"],
+                horizontal=True,
+            )
+
+            explanation_scenario = {
+                "name": ranking_item["name"],
+                "H_eff": ranking_item["H_eff"],
+                "decay": ranking_item["dH_eff_dt"],
+            }
+
+            # Nota contextual para el Escenario D
+            if ranking_item["name"] == d_name and use_scenario_d:
+                st.info(
+                    f"📌 **Lectura web:** "
+                    f"Capacidad disponible = {ranking_item['H_eff']:.0f}/100 · "
+                    f"Degradación por ciclo = {ranking_item['dH_eff_dt']:.1f} pts/ciclo"
+                )
+
+            try:
+                explicacion, fuente = obtener_explicacion_con_fuente(
+                    scenario=explanation_scenario,
+                    classification=ranking_item["class"],
+                    oyente_type=oyente_type,
+                )
+                if fuente == "IA":
+                    st.caption("Fuente de explicación: IA")
+                else:
+                    st.caption("Fuente de explicación: Local (fallback)")
+                st.text_area("Explicación", value=explicacion, height=180)
+            except ValueError as e:
+                st.error(f"Entrada inválida para explicación: {e}")
 
 # -----------------------------
 # Información adicional
