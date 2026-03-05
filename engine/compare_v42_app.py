@@ -98,6 +98,45 @@ with col3:
     c_h_eff = st.number_input("H_eff inicial C", value=28.9, step=1.0, key="c_h")
     c_decay = st.number_input("Decay C", value=4.5, step=0.1, key="c_d")
 
+st.divider()
+st.subheader("🌐 Escenario D — Demo Servicios Web")
+st.caption(
+    "Escenario orientado a audiencia web/académica. "
+    "'Capacidad disponible' equivale a H_eff; "
+    "'Degradación por ciclo de carga' equivale a decay."
+)
+
+col_d1, col_d2, col_d3 = st.columns([2, 2, 2])
+with col_d1:
+    d_name = st.text_input(
+        "Nombre del sistema",
+        value="Portal Inscripciones DGAE (pico enero)",
+        key="d_name",
+        help="Nombre del servicio o sistema web a analizar"
+    )
+with col_d2:
+    d_h_eff = st.number_input(
+        "Capacidad disponible del sistema (0–100)",
+        value=22.0,
+        min_value=0.1,
+        max_value=100.0,
+        step=1.0,
+        key="d_h",
+        help="Margen libre antes de saturación: CPU idle %, ms libres antes de timeout, requests/seg absorbibles"
+    )
+with col_d3:
+    d_decay = st.number_input(
+        "Degradación por ciclo de carga",
+        value=6.1,
+        min_value=0.1,
+        max_value=20.0,
+        step=0.1,
+        key="d_d",
+        help="Cuánto se deteriora la respuesta por cada ciclo de carga adicional (ej. cada 100 usuarios concurrentes)"
+    )
+
+use_scenario_d = st.checkbox("Incluir Escenario D en la comparación", value=True)
+
 # -----------------------------
 # Escenarios personalizados
 # -----------------------------
@@ -134,6 +173,13 @@ if st.button("🔍 Comparar Escenarios", type="primary"):
             Scenario("Escenario B", b_h_eff, b_decay),
             Scenario("Escenario C", c_h_eff, c_decay),
         ]
+
+        # Agregar Escenario D si está habilitado
+        if use_scenario_d:
+            try:
+                scenarios.append(Scenario(d_name, d_h_eff, d_decay))
+            except Exception as e:
+                st.warning(f"Error en Escenario D ({d_name}): {e}")
         
         # Agregar personalizados
         for name, h_eff, decay in custom_scenarios:
@@ -248,6 +294,14 @@ if 'ranking' in st.session_state:
                 "H_eff": ranking_item["H_eff"],
                 "decay": ranking_item["dH_eff_dt"],
             }
+
+            # Nota contextual para el Escenario D
+            if ranking_item["name"] == d_name and use_scenario_d:
+                st.info(
+                    f"📌 **Lectura web:** "
+                    f"Capacidad disponible = {ranking_item['H_eff']:.0f}/100 · "
+                    f"Degradación por ciclo = {ranking_item['dH_eff_dt']:.1f} pts/ciclo"
+                )
 
             try:
                 explicacion, fuente = obtener_explicacion_con_fuente(
