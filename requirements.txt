@@ -1,12 +1,12 @@
 # Requirements - Versiones exactas (lockfile para producción)
-# Generado: 2026-02-08
 # Python: 3.12.1
 
 # Core dependencies
 streamlit==1.54.0
 networkx==3.6.1
 python-chess==1.999
+pandas>=2.2,<3
 
-# Testing (solo si se instala con --dev)
+# Testing
 pytest==9.0.2
 pytest-cov==7.0.0
